@@ -1,386 +1,119 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-// ── LIVE DATA FROM GOOGLE SHEET (updated from xlsx export) ───────────────────
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?output=csv";
 
-const MAY_STANDINGS = [
-  {rank:1,name:"Bobby Witt the Bed Again",month:24,season:60},
-  {rank:2,name:"Diaper Rash",month:24,season:58},
-  {rank:3,name:"Johnsul",month:22,season:50},
-  {rank:4,name:"Exit Velo",month:21,season:61},
-  {rank:5,name:"Humdingers",month:20,season:56},
-  {rank:6,name:"Anguiano",month:19,season:39},
-  {rank:7,name:"Boys of Summer",month:18,season:47},
-  {rank:8,name:"Bad News T",month:18,season:36},
-  {rank:9,name:"Jobu Needs a Refill",month:18,season:51},
-  {rank:10,name:"The Great Wugino",month:17,season:41},
-  {rank:11,name:"Suburban Sportsbook",month:16,season:41},
-  {rank:12,name:"Fuentes",month:16,season:47},
-  {rank:13,name:"Thunder Buddies",month:16,season:41},
-  {rank:14,name:"Langan",month:14,season:41},
-  {rank:15,name:"Viola",month:13,season:45},
-  {rank:16,name:"Pericos",month:12,season:42},
-  {rank:17,name:"Steez",month:12,season:45},
-  {rank:18,name:"Sports Pope",month:12,season:40},
-  {rank:19,name:"Tip's Ladies",month:12,season:46},
-  {rank:20,name:"Chuck's Dingers",month:12,season:45},
-  {rank:21,name:"N Hen",month:12,season:47},
-  {rank:22,name:"JR Gunnar's",month:11,season:36},
-  {rank:23,name:"Mahomes & Kelce",month:11,season:38},
-  {rank:24,name:"Baila Conmigo",month:11,season:40},
-  {rank:25,name:"Drew",month:9,season:39},
-  {rank:26,name:"Spotts Beats Boggs",month:7,season:29},
-];
+// ── CSV PARSER ────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const rows = text.split("\n").map(r => {
+    const cells = []; let cur = ""; let inQ = false;
+    for (let c of r) {
+      if (c === '"') inQ = !inQ;
+      else if (c === "," && !inQ) { cells.push(cur.trim()); cur = ""; }
+      else cur += c;
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
 
-const SEASON_STANDINGS = [
-  {rank:1,name:"Exit Velo",season:61},
-  {rank:2,name:"Bobby Witt the Bed Again",season:60},
-  {rank:3,name:"Diaper Rash",season:58},
-  {rank:4,name:"Humdingers",season:56},
-  {rank:5,name:"Jobu Needs a Refill",season:51},
-  {rank:6,name:"Johnsul",season:50},
-  {rank:7,name:"Boys of Summer",season:47},
-  {rank:8,name:"Fuentes",season:47},
-  {rank:9,name:"N Hen",season:47},
-  {rank:10,name:"Tip's Ladies",season:46},
-  {rank:11,name:"Viola",season:45},
-  {rank:12,name:"Steez",season:45},
-  {rank:13,name:"Chuck's Dingers",season:45},
-  {rank:14,name:"Pericos",season:42},
-  {rank:15,name:"Thunder Buddies",season:41},
-  {rank:16,name:"Langan",season:41},
-  {rank:17,name:"Suburban Sportsbook",season:41},
-  {rank:18,name:"The Great Wugino",season:41},
-  {rank:19,name:"Sports Pope",season:40},
-  {rank:20,name:"Baila Conmigo",season:40},
-  {rank:21,name:"Drew",season:39},
-  {rank:22,name:"Anguiano",season:39},
-  {rank:23,name:"Mahomes & Kelce",season:38},
-  {rank:24,name:"Bad News T",season:36},
-  {rank:25,name:"JR Gunnar's",season:36},
-  {rank:26,name:"Spotts Beats Boggs",season:29},
-];
+  // Build player HR lookup from ranked list (cols AH=33, AI=34)
+  const playerHR = {};
+  for (const row of rows) {
+    const nameCell = row[35] || "";
+    const hrCell = row[36] || "";
+    if (nameCell && hrCell !== "" && nameCell !== "Player Name") {
+      playerHR[nameCell.trim()] = parseInt(hrCell) || 0;
+    }
+    // Also parse ranked list col AC=28 "N. Name (TEAM)"
+    const ranked = row[28] || "";
+    const rankedHR = row[29] || "";
+    if (ranked && rankedHR !== "" && /^\d+\./.test(ranked)) {
+      const m = ranked.match(/^\d+\.\s+(.+?)\s+\([A-Z]+\)$/);
+      if (m) playerHR[m[1].trim()] = parseInt(rankedHR) || 0;
+    }
+  }
 
-const APR_STANDINGS = [
-  {rank:1,name:"Exit Velo",month:40,season:61},
-  {rank:2,name:"Humdingers",month:36,season:56},
-  {rank:3,name:"Bobby Witt the Bed Again",month:36,season:60},
-  {rank:4,name:"N Hen",month:35,season:47},
-  {rank:5,name:"Tip's Ladies",month:34,season:46},
-  {rank:6,name:"Diaper Rash",month:34,season:58},
-  {rank:7,name:"Steez",month:33,season:45},
-  {rank:8,name:"Chuck's Dingers",month:33,season:45},
-  {rank:9,name:"Jobu Needs a Refill",month:33,season:51},
-  {rank:10,name:"Viola",month:32,season:44},
-  {rank:11,name:"Fuentes",month:31,season:47},
-  {rank:12,name:"Drew",month:30,season:36},
-  {rank:13,name:"Pericos",month:30,season:42},
-  {rank:14,name:"Boys of Summer",month:29,season:47},
-  {rank:15,name:"Baila Conmigo",month:29,season:40},
-  {rank:16,name:"Johnsul",month:28,season:50},
-  {rank:17,name:"Sports Pope",month:28,season:40},
-  {rank:18,name:"Langan",month:27,season:41},
-  {rank:19,name:"Mahomes & Kelce",month:27,season:38},
-  {rank:20,name:"JR Gunnar's",month:25,season:36},
-  {rank:21,name:"Suburban Sportsbook",month:25,season:41},
-  {rank:22,name:"Thunder Buddies",month:25,season:41},
-  {rank:23,name:"The Great Wugino",month:24,season:41},
-  {rank:24,name:"Spotts Beats Boggs",month:22,season:29},
-  {rank:25,name:"Anguiano",month:20,season:39},
-  {rank:26,name:"Bad News T",month:18,season:36},
-];
+  // Parse monthly standings (rows 0-25, cols 0-3)
+  const monthlyStandings = [];
+  for (let i = 0; i < 26; i++) {
+    const r = rows[i];
+    if (r && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[1] !== "Overall Standings") {
+      monthlyStandings.push({
+        rank: parseInt(r[0]),
+        name: r[1],
+        month: parseInt(r[2]) || 0,
+        season: parseInt(r[3]) || 0,
+      });
+    }
+  }
 
-const HR_ROSTERS = [
-  {teamName:"The Great Wugino",cap:153,month:17,season:41,players:[
-    {name:"Wyatt Langford",cap2025:22,month:0,season:1,current:1,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"Jake Burger",cap2025:16,month:4,season:9,current:9,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Julio Rodriguez",cap2025:32,month:6,season:8,current:8,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Alex Bregman",cap2025:18,month:null,season:null,current:4,swap:true},
-  ]},
-  {teamName:"Viola",cap:156,month:13,season:45,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Elly De La Cruz",cap2025:22,month:2,season:12,current:12,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Luis Robert Jr.",cap2025:14,month:0,season:2,current:2,swap:false},
-    {name:"Oneil Cruz",cap2025:20,month:1,season:1,current:10,swap:false},
-  ]},
-  {teamName:"Steez",cap:155,month:12,season:45,players:[
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"Oneil Cruz",cap2025:20,month:1,season:10,current:10,swap:false},
-    {name:"Corey Seager",cap2025:21,month:null,season:null,current:7,swap:true},
-  ]},
-  {teamName:"JR Gunnar's",cap:156,month:11,season:36,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Luis Robert Jr.",cap2025:14,month:0,season:2,current:2,swap:false},
-    {name:"Jackson Merrill",cap2025:16,month:null,season:null,current:4,swap:true},
-  ]},
-  {teamName:"N Hen",cap:156,month:12,season:47,players:[
-    {name:"Brent Rooker",cap2025:30,month:5,season:7,current:7,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Corey Seager",cap2025:21,month:1,season:7,current:7,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Wilyer Abreu",cap2025:22,month:2,season:6,current:6,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Elly De La Cruz",cap2025:22,month:2,season:12,current:12,swap:false},
-    {name:"Willson Contreras",cap2025:20,month:null,season:null,current:10,swap:true},
-  ]},
-  {teamName:"Bad News T",cap:156,month:18,season:36,players:[
-    {name:"Julio Rodriguez",cap2025:32,month:6,season:8,current:8,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Lawrence Butler",cap2025:21,month:0,season:3,current:3,swap:false},
-    {name:"Willson Contreras",cap2025:20,month:3,season:10,current:10,swap:false},
-    {name:"Anthony Volpe",cap2025:19,month:0,season:0,current:0,swap:false},
-    {name:"Bo Bichette",cap2025:18,month:3,season:5,current:5,swap:false},
-    {name:"Austin Wells",cap2025:21,month:null,season:null,current:4,swap:true},
-  ]},
-  {teamName:"Mahomes & Kelce",cap:154,month:11,season:38,players:[
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"Jose Ramirez",cap2025:30,month:2,season:8,current:8,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Alex Bregman",cap2025:18,month:1,season:4,current:4,swap:false},
-    {name:"Trea Turner",cap2025:15,month:null,season:null,current:5,swap:true},
-  ]},
-  {teamName:"Diaper Rash",cap:null,month:24,season:58,players:[
-    {name:"Nolan Gorman",cap2025:14,month:2,season:6,current:6,swap:false},
-    {name:"Jake Burger",cap2025:16,month:4,season:9,current:9,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Corey Seager",cap2025:21,month:1,season:7,current:7,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"Matt Olson",cap2025:29,month:5,season:14,current:14,swap:false},
-    {name:"Pete Alonso",cap2025:38,month:6,season:10,current:10,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:null,season:null,current:10,swap:true},
-  ]},
-  {teamName:"Bobby Witt the Bed Again",cap:155,month:24,season:60,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Ben Rice",cap2025:26,month:6,season:16,current:16,swap:false},
-    {name:"Jake Burger",cap2025:16,month:4,season:9,current:9,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Colton Cowser",cap2025:16,month:null,season:null,current:1,swap:true},
-  ]},
-  {teamName:"Suburban Sportsbook",cap:156,month:16,season:41,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Vinnie Pasquantino",cap2025:32,month:2,season:5,current:5,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Jonathan Aranda",cap2025:15,month:1,season:8,current:8,swap:false},
-    {name:"Royce Lewis",cap2025:13,month:0,season:3,current:3,swap:false},
-    {name:"Jake Burger",cap2025:16,month:null,season:null,current:9,swap:true},
-  ]},
-  {teamName:"Tip's Ladies",cap:155,month:12,season:46,players:[
-    {name:"Shohei Ohtani",cap2025:55,month:2,season:8,current:8,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Alex Bregman",cap2025:18,month:1,season:4,current:4,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Nolan Gorman",cap2025:14,month:2,season:6,current:6,swap:false},
-    {name:"Jonathan Aranda",cap2025:14,month:1,season:8,current:8,swap:false},
-    {name:"Luis Robert Jr.",cap2025:14,month:null,season:null,current:2,swap:true},
-  ]},
-  {teamName:"Chuck's Dingers",cap:155,month:12,season:45,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Elly De La Cruz",cap2025:22,month:2,season:12,current:12,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Royce Lewis",cap2025:13,month:0,season:3,current:3,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Austin Riley",cap2025:16,month:null,season:null,current:8,swap:true},
-  ]},
-  {teamName:"Spotts Beats Boggs",cap:156,month:7,season:29,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Fernando Tatis Jr.",cap2025:25,month:0,season:0,current:0,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Josh Naylor",cap2025:20,month:1,season:5,current:5,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Andrew Vaughn",cap2025:14,month:1,season:1,current:1,swap:false},
-    {name:"Trea Turner",cap2025:15,month:null,season:null,current:5,swap:true},
-  ]},
-  {teamName:"Langan",cap:156,month:14,season:41,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Max Muncy",cap2025:19,month:3,season:12,current:2,swap:false},
-    {name:"Adolis Garcia",cap2025:19,month:1,season:4,current:4,swap:false},
-    {name:"Jackson Merrill",cap2025:16,month:1,season:4,current:4,swap:false},
-    {name:"Andrew Vaughn",cap2025:14,month:null,season:null,current:1,swap:true},
-  ]},
-  {teamName:"Pericos",cap:156,month:12,season:42,players:[
-    {name:"Wilyer Abreu",cap2025:22,month:2,season:6,current:6,swap:false},
-    {name:"Lawrence Butler",cap2025:21,month:0,season:3,current:3,swap:false},
-    {name:"Daulton Varsho",cap2025:20,month:1,season:5,current:5,swap:false},
-    {name:"Jonathan Aranda",cap2025:14,month:1,season:8,current:8,swap:false},
-    {name:"Marcus Semien",cap2025:15,month:2,season:3,current:3,swap:false},
-    {name:"Adolis Garcia",cap2025:19,month:1,season:4,current:4,swap:false},
-    {name:"Junior Caminero",cap2025:45,month:5,season:13,current:13,swap:false},
-    {name:"Austin Riley",cap2025:16,month:null,season:null,current:8,swap:true},
-  ]},
-  {teamName:"Boys of Summer",cap:151,month:18,season:47,players:[
-    {name:"Brent Rooker",cap2025:30,month:5,season:7,current:7,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Corey Seager",cap2025:21,month:1,season:7,current:7,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Austin Riley",cap2025:16,month:0,season:0,current:8,swap:false},
-    {name:"Colson Montgomery",cap2025:21,month:5,season:11,current:13,swap:false},
-  ]},
-  {teamName:"Drew",cap:152,month:9,season:39,players:[
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Nolan Gorman",cap2025:14,month:2,season:6,current:6,swap:false},
-    {name:"Addison Barger",cap2025:21,month:0,season:0,current:0,swap:false},
-    {name:"Wilyer Abreu",cap2025:22,month:2,season:6,current:6,swap:false},
-    {name:"Corey Seager",cap2025:21,month:1,season:7,current:7,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Oneil Cruz",cap2025:20,month:0,season:0,current:10,swap:false},
-  ]},
-  {teamName:"Anguiano",cap:156,month:19,season:39,players:[
-    {name:"Juan Soto",cap2025:43,month:7,season:10,current:10,swap:false},
-    {name:"Mickey Moniak",cap2025:24,month:4,season:12,current:12,swap:false},
-    {name:"Jackson Holliday",cap2025:17,month:1,season:1,current:1,swap:false},
-    {name:"Jackson Merrill",cap2025:16,month:1,season:4,current:4,swap:false},
-    {name:"Matt McLain",cap2025:15,month:3,season:5,current:5,swap:false},
-    {name:"Luis Robert Jr.",cap2025:14,month:0,season:2,current:2,swap:false},
-    {name:"Randy Arozarena",cap2025:27,month:3,season:5,current:5,swap:false},
-    {name:"Andrew Vaughn",cap2025:14,month:null,season:null,current:1,swap:true},
-  ]},
-  {teamName:"Fuentes",cap:153,month:16,season:47,players:[
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"James Wood",cap2025:31,month:3,season:13,current:13,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Fernando Tatis Jr.",cap2025:25,month:null,season:null,current:0,swap:true},
-  ]},
-  {teamName:"Johnsul",cap:156,month:22,season:50,players:[
-    {name:"James Wood",cap2025:31,month:3,season:13,current:13,swap:false},
-    {name:"Bryce Harper",cap2025:27,month:6,season:12,current:12,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Wilyer Abreu",cap2025:22,month:2,season:6,current:6,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Jarren Duran",cap2025:16,month:5,season:6,current:6,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Makeil Garcia",cap2025:16,month:null,season:null,current:null,swap:true},
-  ]},
-  {teamName:"Humdingers",cap:155,month:20,season:56,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Ben Rice",cap2025:26,month:6,season:16,current:16,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Jackson Merrill",cap2025:16,month:1,season:4,current:4,swap:false},
-    {name:"Jake Burger",cap2025:16,month:4,season:9,current:9,swap:false},
-    {name:"Austin Riley",cap2025:16,month:null,season:null,current:8,swap:true},
-  ]},
-  {teamName:"Sports Pope",cap:155,month:12,season:40,players:[
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Kyle Tucker",cap2025:22,month:1,season:4,current:4,swap:false},
-    {name:"Daulton Varsho",cap2025:20,month:1,season:5,current:5,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Jake Burger",cap2025:16,month:null,season:null,current:9,swap:true},
-  ]},
-  {teamName:"Jobu Needs a Refill",cap:156,month:18,season:51,players:[
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Teoscar Hernandez",cap2025:25,month:3,season:7,current:7,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"James Wood",cap2025:30,month:3,season:13,current:13,swap:false},
-    {name:"Daulton Varsho",cap2025:20,month:1,season:5,current:5,swap:false},
-    {name:"Colson Montgomery",cap2025:21,month:5,season:13,current:13,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Jackson Chourio",cap2025:21,month:null,season:null,current:1,swap:true},
-  ]},
-  {teamName:"Exit Velo",cap:155,month:21,season:61,players:[
-    {name:"Nick Kurtz",cap2025:36,month:3,season:8,current:8,swap:false},
-    {name:"Ben Rice",cap2025:26,month:6,season:16,current:16,swap:false},
-    {name:"Bobby Witt Jr.",cap2025:23,month:5,season:7,current:7,swap:false},
-    {name:"Corey Seager",cap2025:21,month:1,season:7,current:7,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Jake Burger",cap2025:16,month:4,season:9,current:9,swap:false},
-    {name:"Jackson Merrill",cap2025:16,month:0,season:3,current:4,swap:false},
-    {name:"Jonathan Aranda",cap2025:14,month:1,season:1,current:8,swap:false},
-  ]},
-  {teamName:"Thunder Buddies",cap:null,month:16,season:41,players:[
-    {name:"Juan Soto",cap2025:43,month:7,season:10,current:10,swap:false},
-    {name:"Vladimir Guerrero Jr.",cap2025:23,month:1,season:3,current:3,swap:false},
-    {name:"Wyatt Langford",cap2025:22,month:0,season:1,current:1,swap:false},
-    {name:"Alex Bregman",cap2025:18,month:1,season:4,current:4,swap:false},
-    {name:"Gunnar Henderson",cap2025:17,month:1,season:10,current:10,swap:false},
-    {name:"Austin Riley",cap2025:16,month:5,season:8,current:8,swap:false},
-    {name:"Trea Turner",cap2025:15,month:1,season:5,current:5,swap:false},
-    {name:"Jackson Holliday",cap2025:17,month:null,season:null,current:1,swap:true},
-  ]},
-  {teamName:"Baila Conmigo",cap:155,month:11,season:40,players:[
-    {name:"Pete Crow-Armstrong",cap2025:31,month:3,season:6,current:6,swap:false},
-    {name:"Ronald Acuna Jr.",cap2025:21,month:0,season:2,current:2,swap:false},
-    {name:"Jazz Chisholm",cap2025:31,month:2,season:5,current:5,swap:false},
-    {name:"Oneil Cruz",cap2025:20,month:1,season:10,current:10,swap:false},
-    {name:"Adolis Garcia",cap2025:19,month:1,season:4,current:4,swap:false},
-    {name:"Nathaniel Lowe",cap2025:18,month:3,season:8,current:8,swap:false},
-    {name:"Trea Turner",cap2025:15,month:1,season:5,current:5,swap:false},
-    {name:"Alejandro Kirk",cap2025:15,month:null,season:null,current:1,swap:true},
-  ]},
-];
+  // Parse overall season standings — find the row with "Overall Standings"
+  const seasonStandings = [];
+  let inSeason = false;
+  for (const r of rows) {
+    if (r[1] === "Overall Standings") { inSeason = true; continue; }
+    if (inSeason && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[2]) {
+      seasonStandings.push({
+        rank: parseInt(r[0]),
+        name: r[1],
+        season: parseInt(r[2]) || 0,
+      });
+    }
+  }
 
-// Top HR leaders (live from website feed in sheet)
-const HR_LEADERS = [
-  {rank:1,name:"Kyle Schwarber",team:"PHI",hr:20},
-  {rank:2,name:"Munetaka Murakami",team:"CWS",hr:17},
-  {rank:3,name:"Byron Buxton",team:"MIN",hr:16},
-  {rank:3,name:"Ben Rice",team:"NYY",hr:16},
-  {rank:3,name:"Aaron Judge",team:"NYY",hr:16},
-  {rank:6,name:"Jordan Walker",team:"STL",hr:15},
-  {rank:6,name:"Yordan Alvarez",team:"HOU",hr:15},
-  {rank:8,name:"Matt Olson",team:"ATL",hr:14},
-  {rank:9,name:"Drake Baldwin",team:"ATL",hr:13},
-  {rank:9,name:"Colson Montgomery",team:"CWS",hr:13},
-  {rank:9,name:"James Wood",team:"WSH",hr:13},
-  {rank:9,name:"Brandon Lowe",team:"PIT",hr:13},
-  {rank:9,name:"Junior Caminero",team:"TB",hr:13},
-  {rank:9,name:"Christian Walker",team:"HOU",hr:13},
-  {rank:9,name:"Mike Trout",team:"LAA",hr:13},
-  {rank:16,name:"Bryce Harper",team:"PHI",hr:12},
-  {rank:16,name:"Mickey Moniak",team:"COL",hr:12},
-  {rank:16,name:"Elly De La Cruz",team:"CIN",hr:12},
-  {rank:16,name:"Max Muncy",team:"LAD",hr:12},
-  {rank:22,name:"Michael Harris II",team:"ATL",hr:11},
-  {rank:27,name:"Juan Soto",team:"NYM",hr:10},
-  {rank:27,name:"Pete Alonso",team:"BAL",hr:10},
-  {rank:27,name:"Willson Contreras",team:"BOS",hr:10},
-  {rank:27,name:"Gunnar Henderson",team:"BAL",hr:10},
-  {rank:27,name:"Oneil Cruz",team:"PIT",hr:10},
-];
+  // Parse roster blocks from cols G-J (6-9), L-O (11-14), Q-T (16-19), V-Y (21-24)
+  const SKIP = new Set(["2025","Total HRs","May","April","Season","Player","Monthly Winners",
+    "Overall Season Winners","1st - $75","2nd - $50","1st - $300","2nd - $175","3rd - $75",
+    "Overall Standings","Standings","Home Run Totals","Player Name","Rank",""]);
+  const colGroups = [[6,7,8,9],[11,12,13,14],[16,17,18,19],[21,22,23,24]];
+  const rosters = {};
+  const currentTeams = [null,null,null,null];
 
+  for (const row of rows) {
+    for (let gi = 0; gi < colGroups.length; gi++) {
+      const [c0,c1,c2,c3] = colGroups[gi];
+      const v0 = row[c0]||"", v1 = row[c1]||"", v2 = row[c2]||"", v3 = row[c3]||"";
+      if (v0 && !SKIP.has(v0) && isNaN(parseInt(v0)) && !v1) {
+        currentTeams[gi] = v0;
+        if (!rosters[v0]) rosters[v0] = { players:[], cap:null, month:0, season:0 };
+      } else if (!isNaN(parseInt(v0)) && v1 && !SKIP.has(v1)) {
+        const team = currentTeams[gi];
+        if (team && rosters[team]) {
+          const mhr = v2 !== "" ? parseInt(v2) : null;
+          const shr = v3 !== "" ? parseInt(v3) : null;
+          rosters[team].players.push({
+            name: v1.trim(),
+            cap2025: parseInt(v0),
+            month: mhr,
+            season: shr,
+            current: playerHR[v1.trim()] ?? null,
+            swap: mhr === null && shr === null,
+          });
+        }
+      } else if (v1 === "Total HRs" && !isNaN(parseInt(v0))) {
+        const team = currentTeams[gi];
+        if (team && rosters[team]) {
+          rosters[team].cap = parseInt(v0);
+          rosters[team].month = parseInt(v2) || 0;
+          rosters[team].season = parseInt(v3) || 0;
+        }
+      }
+    }
+  }
+
+  // Parse HR leaders from ranked list col AC/AD
+  const hrLeaders = [];
+  for (const row of rows) {
+    const cell = row[28]||"", hr = row[29]||"";
+    if (cell && hr !== "" && /^\d+\./.test(cell)) {
+      const m = cell.match(/^(\d+)\.\s+(.+?)\s+\(([A-Z]+)\)$/);
+      if (m) hrLeaders.push({ rank:parseInt(m[1]), name:m[2].trim(), team:m[3], hr:parseInt(hr)||0 });
+    }
+  }
+
+  return { monthlyStandings, seasonStandings, rosters: Object.entries(rosters).map(([teamName, d]) => ({ teamName, ...d })), hrLeaders };
+}
+
+// ── WORLD CUP DATA (static) ───────────────────────────────────────────────────
 const WC_GROUPS = [
   {group:1,multiplier:1,teams:["France","Spain","England","Brazil"]},
   {group:2,multiplier:1,teams:["Argentina","Portugal","Germany","Netherlands"]},
@@ -395,19 +128,12 @@ const WC_GROUPS = [
   {group:11,multiplier:3,teams:["Qatar","Iraq","Saudi Arabia","Cape Verde"]},
   {group:12,multiplier:3,teams:["New Zealand","Curacao","Jordan","Haiti"]},
 ];
-
 const WC_SCORING = [
-  {event:"Each goal scored",pts:1},
-  {event:"Group play win",pts:3},
-  {event:"Group play draw",pts:1},
-  {event:"Win group (1st place)",pts:8},
-  {event:"Finish 2nd in group",pts:4},
-  {event:"Advance as best 3rd-place",pts:2},
-  {event:"Win Round of 32 (reach R16)",pts:8},
-  {event:"Reach Quarterfinals",pts:12},
-  {event:"Reach Semifinals",pts:24},
-  {event:"Reach Final",pts:36},
-  {event:"Win Final (Champion)",pts:48},
+  {event:"Each goal scored",pts:1},{event:"Group play win",pts:3},{event:"Group play draw",pts:1},
+  {event:"Win group (1st place)",pts:8},{event:"Finish 2nd in group",pts:4},
+  {event:"Advance as best 3rd-place",pts:2},{event:"Win Round of 32 (reach R16)",pts:8},
+  {event:"Reach Quarterfinals",pts:12},{event:"Reach Semifinals",pts:24},
+  {event:"Reach Final",pts:36},{event:"Win Final (Champion)",pts:48},
 ];
 
 // ── STYLES ────────────────────────────────────────────────────────────────────
@@ -434,20 +160,16 @@ body{background:var(--bg);color:var(--txt);font-family:var(--B);min-height:100vh
 table{width:100%;border-collapse:collapse}
 th{background:var(--bg);padding:10px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);border-bottom:1px solid var(--bdr)}
 td{padding:10px 16px;border-bottom:1px solid rgba(42,48,68,.5);font-size:14px}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(245,200,66,.04)}
+tr:last-child td{border-bottom:none}tr:hover td{background:rgba(245,200,66,.04)}
 th.r,td.r{text-align:right}
 .rbadge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:12px;font-weight:700;background:var(--sur2);color:var(--mut)}
 .r1{background:var(--gold);color:#000}.r2{background:#b0b8cc;color:#000}.r3{background:#cd7f32;color:#fff}
 .ttag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;background:var(--sur2);color:var(--blu);letter-spacing:.5px}
 .hn{font-family:var(--F);font-size:20px;color:var(--gold)}
 .hns{font-family:var(--F);font-size:16px;color:var(--txt)}
-.hng{font-family:var(--F);font-size:16px;color:var(--grn)}
 .srch{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 input.si{flex:1;min-width:200px;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:9px 14px;color:var(--txt);font-family:var(--B);font-size:14px;outline:none;transition:border-color .15s}
-input.si:focus{border-color:var(--gold)}
-input.si::placeholder{color:var(--mut)}
-select.sf{background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:9px 14px;color:var(--txt);font-family:var(--B);font-size:14px;outline:none;cursor:pointer}
+input.si:focus{border-color:var(--gold)}input.si::placeholder{color:var(--mut)}
 .m1x{color:var(--mut);font-size:12px;font-weight:600}
 .m2x{color:var(--blu);font-size:12px;font-weight:700;background:rgba(74,158,255,.1);padding:2px 7px;border-radius:3px}
 .m3x{color:var(--red);font-size:12px;font-weight:700;background:rgba(232,69,69,.1);padding:2px 7px;border-radius:3px}
@@ -498,42 +220,42 @@ select.sf{background:var(--bg);border:1px solid var(--bdr);border-radius:6px;pad
 .t2.on{background:var(--gold);color:#000}
 .podium{display:flex;gap:12px;margin-bottom:20px}
 .pod{flex:1;background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:16px;text-align:center}
-.pod.p1{border-color:var(--gold);background:rgba(245,200,66,.06)}
-.pod.p2{border-color:#b0b8cc}.pod.p3{border-color:#cd7f32}
+.pod.p1{border-color:var(--gold);background:rgba(245,200,66,.06)}.pod.p2{border-color:#b0b8cc}.pod.p3{border-color:#cd7f32}
 .pos{font-family:var(--F);font-size:32px}
 .p1 .pos{color:var(--gold)}.p2 .pos{color:#b0b8cc}.p3 .pos{color:#cd7f32}
-.pteam{font-weight:600;font-size:14px;margin:4px 0 2px}
-.phr{font-family:var(--F);font-size:24px;color:var(--txt)}
-.plbl{font-size:11px;color:var(--mut);letter-spacing:1px}
+.pteam{font-weight:600;font-size:14px;margin:4px 0 2px}.phr{font-family:var(--F);font-size:24px;color:var(--txt)}.plbl{font-size:11px;color:var(--mut);letter-spacing:1px}
 @media(max-width:500px){.podium{flex-direction:column}}
-.empty{text-align:center;padding:48px 20px;color:var(--mut)}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;color:var(--mut)}
+.spinner{width:48px;height:48px;border:4px solid var(--bdr);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--grn);margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.updated{font-size:12px;color:var(--mut);display:flex;align-items:center}
 `;
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
 function RB({rank}) {
   return <span className={`rbadge ${rank===1?'r1':rank===2?'r2':rank===3?'r3':''}`}>{rank}</span>;
 }
 
 // ── HR DERBY ─────────────────────────────────────────────────────────────────
-function HRDerby() {
+function HRDerby({ data }) {
   const [sec, setSec] = useState("standings");
   const [stab, setStab] = useState("season");
-  const [mtab, setMtab] = useState("may");
   const [search, setSearch] = useState("");
   const [sel, setSel] = useState(null);
 
-  const monthData = mtab==="may" ? MAY_STANDINGS : APR_STANDINGS;
-  const monthField = mtab==="may" ? "month" : "month";
-  const monthLabel = mtab==="may" ? "May HRs" : "April HRs";
+  const { monthlyStandings, seasonStandings, rosters, hrLeaders } = data;
 
-  const display = stab==="season"
-    ? [...SEASON_STANDINGS].sort((a,b)=>b.season-a.season).map((s,i)=>({...s,rank:i+1}))
-    : [...monthData].sort((a,b)=>b[monthField]-a[monthField]).map((s,i)=>({...s,rank:i+1}));
-  const maxV = stab==="season" ? Math.max(...SEASON_STANDINGS.map(s=>s.season)) : Math.max(...monthData.map(s=>s[monthField]));
+  const display = stab === "season"
+    ? [...seasonStandings].sort((a,b) => b.season - a.season).map((s,i) => ({...s, rank:i+1}))
+    : [...monthlyStandings].sort((a,b) => b.month - a.month).map((s,i) => ({...s, rank:i+1}));
+  const maxV = stab === "season"
+    ? Math.max(...seasonStandings.map(s => s.season))
+    : Math.max(...monthlyStandings.map(s => s.month));
 
-  const filtRosters = HR_ROSTERS.filter(r =>
+  const filtRosters = rosters.filter(r =>
     !search || r.teamName.toLowerCase().includes(search.toLowerCase()) ||
-    r.players.some(p=>p.name.toLowerCase().includes(search.toLowerCase()))
+    r.players.some(p => p.name.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -541,11 +263,11 @@ function HRDerby() {
       <div className="phdr">
         <div>
           <div className="ptitle">⚾ HOME RUN DERBY POOL 2026</div>
-          <div style={{fontSize:14,color:"var(--mut)",marginTop:4}}>26 teams · Season-long HR accumulation · Live stats</div>
+          <div style={{fontSize:14,color:"var(--mut)",marginTop:4}}>{rosters.length} teams · Live stats · Auto-updates daily</div>
         </div>
         <div className="pmeta">
           <div className="pill">Entry: <strong>50 units</strong></div>
-          <div className="pill">Teams: <strong>26</strong></div>
+          <div className="pill">Teams: <strong>{rosters.length}</strong></div>
           <div className="pill">HR Cap: <strong>156</strong></div>
           <div className="pill">Prizes: <strong>Monthly + Season</strong></div>
         </div>
@@ -561,7 +283,7 @@ function HRDerby() {
         <div>
           <div className="podium">
             {display.slice(0,3).map((t,i)=>{
-              const v = stab==="season"?t.season:t[monthField];
+              const v = stab==="season" ? t.season : t.month;
               return (
                 <div key={t.name} className={`pod p${i+1}`}>
                   <div className="pos">{["🥇","🥈","🥉"][i]}</div>
@@ -572,28 +294,20 @@ function HRDerby() {
               );
             })}
           </div>
-          <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
-            <div className="tabs2">
-              <button className={`t2 ${stab==="season"?"on":""}`} onClick={()=>setStab("season")}>SEASON TOTAL</button>
-              <button className={`t2 ${stab==="month"?"on":""}`} onClick={()=>setStab("month")}>MONTHLY</button>
-            </div>
-            {stab==="month" && (
-              <div className="tabs2">
-                <button className={`t2 ${mtab==="may"?"on":""}`} onClick={()=>setMtab("may")}>MAY</button>
-                <button className={`t2 ${mtab==="apr"?"on":""}`} onClick={()=>setMtab("apr")}>APRIL</button>
-              </div>
-            )}
+          <div className="tabs2">
+            <button className={`t2 ${stab==="season"?"on":""}`} onClick={()=>setStab("season")}>SEASON TOTAL</button>
+            <button className={`t2 ${stab==="month"?"on":""}`} onClick={()=>setStab("month")}>MAY</button>
           </div>
           <div className="card">
             <div className="chdr">
-              {stab==="season"?"🏆 Season Standings":`📅 ${mtab==="may"?"May":"April"} Standings`}
+              {stab==="season" ? "🏆 Season Standings" : "📅 May Standings"}
               <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Click team → view roster</span>
             </div>
             <table>
-              <thead><tr><th style={{width:48}}>Rank</th><th>Team</th><th className="r">{stab==="season"?"Season HRs":monthLabel}</th><th style={{width:160}}></th></tr></thead>
+              <thead><tr><th style={{width:48}}>Rank</th><th>Team</th><th className="r">{stab==="season"?"Season HRs":"May HRs"}</th><th style={{width:160}}></th></tr></thead>
               <tbody>
                 {display.map(s=>{
-                  const v = stab==="season"?s.season:s[monthField];
+                  const v = stab==="season" ? s.season : s.month;
                   const pct = Math.round((v/maxV)*100);
                   return (
                     <tr key={s.name} style={{cursor:"pointer"}} onClick={()=>{setSec("rosters");setSel(s.name);}}>
@@ -629,20 +343,18 @@ function HRDerby() {
                   </div>
                   <div className="rctots">
                     <div className="rcstat" style={{textAlign:"center"}}>
-                      <div className="v">{r.month}</div>
-                      <div className="lbl">MAY</div>
+                      <div className="v">{r.month}</div><div className="lbl">MAY</div>
                     </div>
                     <div className="rcstat" style={{textAlign:"center"}}>
-                      <div className="v" style={{color:"var(--grn)"}}>{r.season}</div>
-                      <div className="lbl">SEASON</div>
+                      <div className="v" style={{color:"var(--grn)"}}>{r.season}</div><div className="lbl">SEASON</div>
                     </div>
                   </div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",padding:"6px 16px 4px",borderBottom:"1px solid var(--bdr)"}}>
                   <span style={{fontSize:10,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase"}}>Player</span>
-                  <span style={{fontSize:10,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase",textAlign:"right",minWidth:40}}>Cap</span>
-                  <span style={{fontSize:10,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase",textAlign:"right",minWidth:40,paddingLeft:10}}>May</span>
-                  <span style={{fontSize:10,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase",textAlign:"right",minWidth:40,paddingLeft:10}}>Total</span>
+                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:36}}>Cap</span>
+                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:40,paddingLeft:10}}>May</span>
+                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:44,paddingLeft:10}}>Season</span>
                 </div>
                 {r.players.map((p,i)=>(
                   <div className="rpr" key={i} style={p.swap?{opacity:.65,background:"rgba(74,158,255,.04)"}:{}}>
@@ -650,9 +362,9 @@ function HRDerby() {
                       <span style={{fontSize:13,fontWeight:p.swap?400:500}}>{p.name}</span>
                       {p.swap && <span className="swapb">SWAP</span>}
                     </div>
-                    <span style={{fontSize:11,color:"var(--mut)",textAlign:"right",minWidth:40}}>{p.cap2025}</span>
+                    <span style={{fontSize:11,color:"var(--mut)",textAlign:"right",minWidth:36}}>{p.cap2025}</span>
                     <span style={{fontFamily:"var(--F)",fontSize:14,color:"var(--gold)",textAlign:"right",minWidth:40,paddingLeft:10}}>{p.month??'—'}</span>
-                    <span style={{fontFamily:"var(--F)",fontSize:14,color:"var(--grn)",textAlign:"right",minWidth:40,paddingLeft:10}}>{p.season??'—'}</span>
+                    <span style={{fontFamily:"var(--F)",fontSize:14,color:"var(--grn)",textAlign:"right",minWidth:44,paddingLeft:10}}>{p.season??'—'}</span>
                   </div>
                 ))}
               </div>
@@ -663,11 +375,11 @@ function HRDerby() {
 
       {sec==="leaders" && (
         <div className="card">
-          <div className="chdr">⚾ 2026 MLB HR Leaders <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Live from sheet · as of last update</span></div>
+          <div className="chdr">⚾ 2026 MLB HR Leaders <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Live from sheet</span></div>
           <table>
             <thead><tr><th style={{width:48}}>Rank</th><th>Player</th><th>Team</th><th className="r">HRs</th></tr></thead>
             <tbody>
-              {HR_LEADERS.map((p,i)=>(
+              {hrLeaders.slice(0,40).map((p,i)=>(
                 <tr key={i}>
                   <td><RB rank={p.rank}/></td>
                   <td style={{fontWeight:500}}>{p.name}</td>
@@ -691,7 +403,7 @@ function HRDerby() {
                 "Scoring is cumulative season-long HRs. If you use the swap, HRs count from the original player up to the swap date, then the new player's HRs count forward.",
                 "October regular season games count toward final totals. Play-in games do NOT count.",
                 "No free agent moves, no IR moves — no changes beyond the one allowed swap.",
-                "Monthly prizes for the Top 2 teams each month (April–September). Monthly totals are NOT cumulative — it's only that month's HRs.",
+                "Monthly prizes for Top 2 teams each month (April–September). Monthly totals are NOT cumulative.",
                 "End-of-year prizes for Top 3 teams based on cumulative season HRs."].map((rule,i)=>(
                 <div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>
               ))}
@@ -754,10 +466,7 @@ function WorldCup() {
           <div className="card">
             <div className="chdr">📊 Base Scoring</div>
             {WC_SCORING.map((s,i)=>(
-              <div className="srow" key={i}>
-                <span style={{fontSize:14,color:"#c5cde0"}}>{s.event}</span>
-                <span className="spts">{s.pts}</span>
-              </div>
+              <div className="srow" key={i}><span style={{fontSize:14,color:"#c5cde0"}}>{s.event}</span><span className="spts">{s.pts}</span></div>
             ))}
           </div>
           <div>
@@ -770,7 +479,7 @@ function WorldCup() {
             <div className="card">
               <div className="chdr">🥇 Golden Boot Side Pool</div>
               <div style={{padding:"14px 16px"}}>
-                {[["$5/entry","Goes into the Golden Boot pot for the tournament's top scorer."],["$30/entry","Goes to top 2-3 finishers in the main pool."],["Split","If multiple people pick the correct Golden Boot winner, the pot splits."],["Rollover","If no one picks correctly, the $5/entry rolls into the main prize pool."]].map(([k,v],i,a)=>(
+                {[["$5/entry","Goes into the Golden Boot pot for the tournament's top scorer."],["$30/entry","Goes to top 2-3 finishers in the main pool."],["Split","If multiple people pick correctly, the pot splits."],["Rollover","If no one picks correctly, rolls into the main prize pool."]].map(([k,v],i,a)=>(
                   <div className="ri" key={i} style={i===a.length-1?{borderBottom:"none"}:{}}>
                     <span className="rn" style={{minWidth:64,fontSize:12,fontWeight:700}}>{k}</span>
                     <span style={{fontSize:13,color:"#c5cde0"}}>{v}</span>
@@ -787,7 +496,7 @@ function WorldCup() {
           <div style={{padding:20}}>
             <div className="rbox">
               {["Each participant chooses 1 team from each of the 12 Pool Groups, giving you 12 teams total.",
-                "Pool Groups are based on DraftKings odds and FIFA rankings as of 5/18/2026 — these are NOT the actual FIFA World Cup groups.",
+                "Pool Groups are based on DraftKings odds and FIFA rankings as of 5/18/2026 — NOT the actual FIFA World Cup groups.",
                 "Groups 6, 7, 8, and 9 earn DOUBLE points on all scoring events throughout the entire tournament.",
                 "Groups 10, 11, and 12 earn TRIPLE points on all scoring events throughout the entire tournament.",
                 "Also select one player you think will win the Golden Boot (most goals). This is the side pool.",
@@ -806,27 +515,29 @@ function WorldCup() {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
-function Dashboard({setTab}) {
-  const sl = [...SEASON_STANDINGS].sort((a,b)=>b.season-a.season)[0];
-  const ml = [...MAY_STANDINGS].sort((a,b)=>b.month-a.month)[0];
-  const al = [...APR_STANDINGS].sort((a,b)=>b.month-a.month)[0];
+function Dashboard({ setTab, data, updatedAt }) {
+  const { monthlyStandings, seasonStandings } = data;
+  const sl = [...seasonStandings].sort((a,b)=>b.season-a.season)[0] || {};
+  const ml = [...monthlyStandings].sort((a,b)=>b.month-a.month)[0] || {};
   return (
     <div>
       <div style={{marginBottom:28}}>
         <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:3,marginBottom:6}}>ACTIVE POOLS</div>
-        <div style={{color:"var(--mut)",fontSize:14}}>Your fantasy sports hub · 2 pools active</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div className="updated"><span className="live-dot"/>Live data · Updated {updatedAt}</div>
+        </div>
       </div>
       <div className="dgrid">
         <div className="dc" onClick={()=>setTab("hr")}>
           <div className="dctop">
             <div className="dico" style={{background:"rgba(245,200,66,.12)"}}>⚾</div>
-            <div><div className="dctitle">Home Run Derby</div><div className="dcsub">2026 MLB Season · 26 Teams</div></div>
+            <div><div className="dctitle">Home Run Derby</div><div className="dcsub">2026 MLB Season · {seasonStandings.length} Teams</div></div>
             <span className="blive" style={{marginLeft:"auto"}}>LIVE</span>
           </div>
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Season Leader</span><span className="dsv">{sl.name} ({sl.season} HR)</span></div>
             <div className="dsr"><span className="dsl">May Leader</span><span className="dsv">{ml.name} ({ml.month} HR)</span></div>
-            <div className="dsr"><span className="dsl">April Leader</span><span className="dsv">{al.name} ({al.month} HR)</span></div>
+            <div className="dsr"><span className="dsl">Monthly Prize</span><span className="dsv">1st $75 · 2nd $50</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Season Prize</span><span className="dsv">1st $300 · 2nd $175 · 3rd $75</span></div>
           </div>
           <button className="dcta">VIEW STANDINGS →</button>
@@ -849,18 +560,16 @@ function Dashboard({setTab}) {
       <div className="card">
         <div className="chdr">🏆 HR Derby — Season Top 5</div>
         <table>
-          <thead><tr><th>Rank</th><th>Team</th><th className="r">Season HRs</th><th className="r">May HRs</th><th className="r">April HRs</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Team</th><th className="r">Season HRs</th><th className="r">May HRs</th></tr></thead>
           <tbody>
-            {[...SEASON_STANDINGS].sort((a,b)=>b.season-a.season).slice(0,5).map((s,i)=>{
-              const m = MAY_STANDINGS.find(x=>x.name===s.name);
-              const a = APR_STANDINGS.find(x=>x.name===s.name);
+            {[...seasonStandings].sort((a,b)=>b.season-a.season).slice(0,5).map((s,i)=>{
+              const m = monthlyStandings.find(x=>x.name===s.name);
               return (
                 <tr key={s.name}>
                   <td><RB rank={i+1}/></td>
                   <td style={{fontWeight:500}}>{s.name}</td>
                   <td className="r"><span className="hn">{s.season}</span></td>
                   <td className="r"><span className="hns">{m?.month??'—'}</span></td>
-                  <td className="r"><span className="hns">{a?.month??'—'}</span></td>
                 </tr>
               );
             })}
@@ -888,6 +597,38 @@ function Dashboard({setTab}) {
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("dashboard");
+  const [data, setData] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch(CSV_URL)
+      .then(r => r.text())
+      .then(text => {
+        setData(parseCSV(text));
+        setUpdatedAt(new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}));
+      })
+      .catch(() => setError("Could not load live data. Please refresh."));
+  }, []);
+
+  if (error) return (
+    <>
+      <style>{S}</style>
+      <div className="loading"><div style={{fontSize:40}}>⚠️</div><div>{error}</div></div>
+    </>
+  );
+
+  if (!data) return (
+    <>
+      <style>{S}</style>
+      <div className="loading">
+        <div className="spinner"/>
+        <div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>LOADING LIVE DATA...</div>
+        <div style={{fontSize:13}}>Fetching latest stats from Google Sheets</div>
+      </div>
+    </>
+  );
+
   return (
     <>
       <style>{S}</style>
@@ -902,8 +643,8 @@ export default function App() {
           ))}
         </nav>
         <main className="main">
-          {tab==="dashboard" && <Dashboard setTab={setTab}/>}
-          {tab==="hr" && <HRDerby/>}
+          {tab==="dashboard" && <Dashboard setTab={setTab} data={data} updatedAt={updatedAt}/>}
+          {tab==="hr" && <HRDerby data={data}/>}
           {tab==="wc" && <WorldCup/>}
         </main>
       </div>
