@@ -634,7 +634,7 @@ export default function App() {
       <style>{S}</style>
       <div>
         <header className="hdr">
-          <div className="logo">WUG<span>DERBY</span>POOLS</span></div>
+          <div className="logo">WUG<span>DERBYPOOLS</span></div>
           <div style={{fontSize:13,color:"var(--mut)"}}>Fantasy Sports · 2026</div>
         </header>
         <nav className="nav">
