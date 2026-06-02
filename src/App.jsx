@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?output=csv";
+const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
+const DEADLINE = new Date("2026-06-11T14:00:00");
 
 // ── CSV PARSER ────────────────────────────────────────────────────────────────
 function parseCSV(text) {
@@ -14,106 +16,52 @@ function parseCSV(text) {
     cells.push(cur.trim());
     return cells;
   });
-
-  // Build player HR lookup from ranked list (cols AH=33, AI=34)
   const playerHR = {};
   for (const row of rows) {
-    const nameCell = row[35] || "";
-    const hrCell = row[36] || "";
-    if (nameCell && hrCell !== "" && nameCell !== "Player Name") {
-      playerHR[nameCell.trim()] = parseInt(hrCell) || 0;
-    }
-    // Also parse ranked list col AC=28 "N. Name (TEAM)"
-    const ranked = row[28] || "";
-    const rankedHR = row[29] || "";
+    const nameCell = row[35] || "", hrCell = row[36] || "";
+    if (nameCell && hrCell !== "" && nameCell !== "Player Name") playerHR[nameCell.trim()] = parseInt(hrCell) || 0;
+    const ranked = row[28] || "", rankedHR = row[29] || "";
     if (ranked && rankedHR !== "" && /^\d+\./.test(ranked)) {
       const m = ranked.match(/^\d+\.\s+(.+?)\s+\([A-Z]+\)$/);
       if (m) playerHR[m[1].trim()] = parseInt(rankedHR) || 0;
     }
   }
-
-  // Parse monthly standings (rows 0-25, cols 0-3)
   const monthlyStandings = [];
   for (let i = 0; i < 26; i++) {
     const r = rows[i];
-    if (r && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[1] !== "Overall Standings") {
-      monthlyStandings.push({
-        rank: parseInt(r[0]),
-        name: r[1],
-        month: parseInt(r[2]) || 0,
-        season: parseInt(r[3]) || 0,
-      });
-    }
+    if (r && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[1] !== "Overall Standings")
+      monthlyStandings.push({ rank: parseInt(r[0]), name: r[1], month: parseInt(r[2]) || 0, season: parseInt(r[3]) || 0 });
   }
-
-  // Parse overall season standings — find the row with "Overall Standings"
   const seasonStandings = [];
   let inSeason = false;
   for (const r of rows) {
     if (r[1] === "Overall Standings") { inSeason = true; continue; }
-    if (inSeason && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[2]) {
-      seasonStandings.push({
-        rank: parseInt(r[0]),
-        name: r[1],
-        season: parseInt(r[2]) || 0,
-      });
-    }
+    if (inSeason && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[2])
+      seasonStandings.push({ rank: parseInt(r[0]), name: r[1], season: parseInt(r[2]) || 0 });
   }
-
-  // Parse roster blocks from cols G-J (6-9), L-O (11-14), Q-T (16-19), V-Y (21-24)
-  const SKIP = new Set(["2025","Total HRs","May","April","Season","Player","Monthly Winners",
-    "Overall Season Winners","1st - $75","2nd - $50","1st - $300","2nd - $175","3rd - $75",
-    "Overall Standings","Standings","Home Run Totals","Player Name","Rank",""]);
+  const SKIP = new Set(["2025","Total HRs","May","April","Season","Player","Monthly Winners","Overall Season Winners","1st - $75","2nd - $50","1st - $300","2nd - $175","3rd - $75","Overall Standings","Standings","Home Run Totals","Player Name","Rank",""]);
   const colGroups = [[6,7,8,9],[11,12,13,14],[16,17,18,19],[21,22,23,24]];
-  const rosters = {};
-  const currentTeams = [null,null,null,null];
-
+  const rosters = {}; const currentTeams = [null,null,null,null];
   for (const row of rows) {
     for (let gi = 0; gi < colGroups.length; gi++) {
       const [c0,c1,c2,c3] = colGroups[gi];
-      const v0 = row[c0]||"", v1 = row[c1]||"", v2 = row[c2]||"", v3 = row[c3]||"";
-      if (v0 && !SKIP.has(v0) && isNaN(parseInt(v0)) && !v1) {
-        currentTeams[gi] = v0;
-        if (!rosters[v0]) rosters[v0] = { players:[], cap:null, month:0, season:0 };
-      } else if (!isNaN(parseInt(v0)) && v1 && !SKIP.has(v1)) {
-        const team = currentTeams[gi];
-        if (team && rosters[team]) {
-          const mhr = v2 !== "" ? parseInt(v2) : null;
-          const shr = v3 !== "" ? parseInt(v3) : null;
-          rosters[team].players.push({
-            name: v1.trim(),
-            cap2025: parseInt(v0),
-            month: mhr,
-            season: shr,
-            current: playerHR[v1.trim()] ?? null,
-            swap: mhr === null && shr === null,
-          });
-        }
-      } else if (v1 === "Total HRs" && !isNaN(parseInt(v0))) {
-        const team = currentTeams[gi];
-        if (team && rosters[team]) {
-          rosters[team].cap = parseInt(v0);
-          rosters[team].month = parseInt(v2) || 0;
-          rosters[team].season = parseInt(v3) || 0;
-        }
-      }
+      const v0=row[c0]||"",v1=row[c1]||"",v2=row[c2]||"",v3=row[c3]||"";
+      if (v0 && !SKIP.has(v0) && isNaN(parseInt(v0)) && !v1) { currentTeams[gi]=v0; if (!rosters[v0]) rosters[v0]={players:[],cap:null,month:0,season:0}; }
+      else if (!isNaN(parseInt(v0)) && v1 && !SKIP.has(v1)) {
+        const team=currentTeams[gi];
+        if (team && rosters[team]) { const mhr=v2!==""?parseInt(v2):null,shr=v3!==""?parseInt(v3):null; rosters[team].players.push({name:v1.trim(),cap2025:parseInt(v0),month:mhr,season:shr,current:playerHR[v1.trim()]??null,swap:mhr===null&&shr===null}); }
+      } else if (v1==="Total HRs" && !isNaN(parseInt(v0))) { const team=currentTeams[gi]; if (team&&rosters[team]){rosters[team].cap=parseInt(v0);rosters[team].month=parseInt(v2)||0;rosters[team].season=parseInt(v3)||0;} }
     }
   }
-
-  // Parse HR leaders from ranked list col AC/AD
   const hrLeaders = [];
   for (const row of rows) {
-    const cell = row[28]||"", hr = row[29]||"";
-    if (cell && hr !== "" && /^\d+\./.test(cell)) {
-      const m = cell.match(/^(\d+)\.\s+(.+?)\s+\(([A-Z]+)\)$/);
-      if (m) hrLeaders.push({ rank:parseInt(m[1]), name:m[2].trim(), team:m[3], hr:parseInt(hr)||0 });
-    }
+    const cell=row[28]||"",hr=row[29]||"";
+    if (cell&&hr!==""&&/^\d+\./.test(cell)){const m=cell.match(/^(\d+)\.\s+(.+?)\s+\(([A-Z]+)\)$/);if(m)hrLeaders.push({rank:parseInt(m[1]),name:m[2].trim(),team:m[3],hr:parseInt(hr)||0});}
   }
-
-  return { monthlyStandings, seasonStandings, rosters: Object.entries(rosters).map(([teamName, d]) => ({ teamName, ...d })), hrLeaders };
+  return { monthlyStandings, seasonStandings, rosters: Object.entries(rosters).map(([teamName,d])=>({teamName,...d})), hrLeaders };
 }
 
-// ── WORLD CUP DATA (static) ───────────────────────────────────────────────────
+// ── STATIC DATA ───────────────────────────────────────────────────────────────
 const WC_GROUPS = [
   {group:1,multiplier:1,teams:["France","Spain","England","Brazil"]},
   {group:2,multiplier:1,teams:["Argentina","Portugal","Germany","Netherlands"]},
@@ -135,6 +83,21 @@ const WC_SCORING = [
   {event:"Reach Quarterfinals",pts:12},{event:"Reach Semifinals",pts:24},
   {event:"Reach Final",pts:36},{event:"Win Final (Champion)",pts:48},
 ];
+const GOLDEN_BOOT_PLAYERS = [
+  "Kylian Mbappé","Erling Haaland","Vinicius Jr.","Lionel Messi","Cristiano Ronaldo",
+  "Neymar Jr.","Pedri","Jude Bellingham","Bukayo Saka","Phil Foden","Lamine Yamal",
+  "Rodri","Harry Kane","Romelu Lukaku","Darwin Nunez","Cody Gakpo","Richarlison",
+  "Dusan Vlahovic","Victor Osimhen","Sadio Mane","Mohamed Salah","Riyad Mahrez",
+  "Achraf Hakimi","Sofiane Boufal","Jordan Ayew","Andre Ayew","Taiwo Awoniyi",
+  "Bobby De Cordova-Reid","Cyle Larin","Tajon Buchanan","Jonathan David","Alphonso Davies",
+  "Takefusa Kubo","Daichi Kamada","Keylor Navas","Giorgian De Arrascaeta","Federico Valverde",
+  "Hirving Lozano","Raul Jimenez","Henry Martin","Haris Seferovic","Granit Xhaka",
+  "Xherdan Shaqiri","Luka Modric","Ivan Perisic","Mateo Kovacic","Enner Valencia",
+  "Jeremy Sarmiento","Son Heung-min","Hwang Hee-chan","Fakhreddine Ben Youssef",
+  "Youssef Msakni","Wahbi Khazri","Mehdi Taremi","Sardar Azmoun","Dodi Lukebakio",
+  "Jeremy Doku","Lois Openda","Amine Harit","Sofyan Amrabat","Hakim Ziyech","Youssef En-Nesyri",
+  "Other"
+];
 
 // ── STYLES ────────────────────────────────────────────────────────────────────
 const S = `
@@ -144,8 +107,8 @@ const S = `
 body{background:var(--bg);color:var(--txt);font-family:var(--B);min-height:100vh}
 .hdr{background:linear-gradient(135deg,#0d0f14,#1a1f2e);border-bottom:2px solid var(--gold);padding:0 24px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;height:64px}
 .logo{font-family:var(--F);font-size:28px;letter-spacing:2px;color:var(--gold)}.logo span{color:var(--txt)}
-.nav{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid var(--bdr);background:var(--sur)}
-.ntab{padding:10px 20px 12px;border:none;background:transparent;color:var(--mut);font-family:var(--F);font-size:18px;letter-spacing:1px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;transition:all .2s}
+.nav{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid var(--bdr);background:var(--sur);overflow-x:auto}
+.ntab{padding:10px 20px 12px;border:none;background:transparent;color:var(--mut);font-family:var(--F);font-size:18px;letter-spacing:1px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;transition:all .2s;white-space:nowrap}
 .ntab:hover{color:var(--txt)}.ntab.on{color:var(--gold);border-bottom-color:var(--gold)}
 .main{padding:24px;max-width:1200px;margin:0 auto}
 .phdr{background:linear-gradient(135deg,var(--sur),var(--sur2));border:1px solid var(--bdr);border-left:4px solid var(--gold);border-radius:8px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
@@ -194,8 +157,7 @@ input.si:focus{border-color:var(--gold)}input.si::placeholder{color:var(--mut)}
 .dc:hover{transform:translateY(-2px);border-color:var(--gold)}
 .dctop{padding:20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:16px}
 .dico{width:52px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px}
-.dctitle{font-family:var(--F);font-size:22px;letter-spacing:1px}
-.dcsub{font-size:13px;color:var(--mut);margin-top:2px}
+.dctitle{font-family:var(--F);font-size:22px;letter-spacing:1px}.dcsub{font-size:13px;color:var(--mut);margin-top:2px}
 .dcbody{padding:16px 20px}
 .dsr{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px}
 .dsl{color:var(--mut)}.dsv{font-weight:600;color:var(--txt)}
@@ -231,199 +193,239 @@ input.si:focus{border-color:var(--gold)}input.si::placeholder{color:var(--mut)}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--grn);margin-right:6px;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .updated{font-size:12px;color:var(--mut);display:flex;align-items:center}
+
+/* ENTRY FORM STYLES */
+.entry-form{max-width:800px;margin:0 auto}
+.form-section{background:var(--sur);border:1px solid var(--bdr);border-radius:8px;margin-bottom:20px;overflow:hidden}
+.form-section-hdr{padding:14px 20px;background:var(--bg);border-bottom:1px solid var(--bdr);font-family:var(--F);font-size:18px;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between}
+.form-section-hdr .num{color:var(--gold)}
+.form-group{padding:16px 20px;border-bottom:1px solid rgba(42,48,68,.4)}
+.form-group:last-child{border-bottom:none}
+.form-label{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:8px;display:block}
+.form-input{width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:10px 14px;color:var(--txt);font-family:var(--B);font-size:14px;outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--gold)}
+.form-input::placeholder{color:var(--mut)}
+.team-select-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;padding:4px 0}
+.team-btn{padding:9px 12px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--txt);font-family:var(--B);font-size:13px;cursor:pointer;transition:all .15s;text-align:left}
+.team-btn:hover{border-color:var(--gold);color:var(--gold)}
+.team-btn.selected-1x{border-color:var(--gold);background:rgba(245,200,66,.12);color:var(--gold);font-weight:600}
+.team-btn.selected-2x{border-color:var(--blu);background:rgba(74,158,255,.12);color:var(--blu);font-weight:600}
+.team-btn.selected-3x{border-color:var(--red);background:rgba(232,69,69,.12);color:var(--red);font-weight:600}
+.group-pick-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.group-pick-label{font-family:var(--F);font-size:16px;letter-spacing:1px}
+.pick-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--bdr);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.pick-check.done{background:var(--grn);border-color:var(--grn);color:#000}
+.progress-bar-wrap{margin-bottom:20px}
+.progress-bar{height:6px;background:var(--bdr);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--grn));border-radius:3px;transition:width .3s}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:6px}
+.submit-btn{width:100%;padding:16px;background:var(--gold);color:#000;border:none;border-radius:8px;font-family:var(--F);font-size:24px;letter-spacing:2px;cursor:pointer;transition:all .2s;margin-top:8px}
+.submit-btn:hover:not(:disabled){background:var(--gold2);transform:translateY(-1px)}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed}
+.success-screen{text-align:center;padding:60px 24px;max-width:600px;margin:0 auto}
+.success-icon{font-size:72px;margin-bottom:20px}
+.success-title{font-family:var(--F);font-size:48px;letter-spacing:3px;color:var(--grn);margin-bottom:12px}
+.success-sub{color:var(--mut);font-size:16px;line-height:1.6;margin-bottom:32px}
+.picks-summary{background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:20px;text-align:left;margin-bottom:24px}
+.picks-summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(42,48,68,.4);font-size:14px}
+.picks-summary-row:last-child{border-bottom:none}
+.picks-summary-label{color:var(--mut)}
+.picks-summary-value{font-weight:600;color:var(--txt)}
+.deadline-banner{background:rgba(232,69,69,.1);border:1px solid rgba(232,69,69,.3);border-radius:8px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px}
+.deadline-banner-icon{font-size:32px}
+.deadline-banner-title{font-family:var(--F);font-size:20px;color:var(--red);letter-spacing:1px}
+.deadline-banner-sub{font-size:13px;color:var(--mut);margin-top:2px}
+.gb-select{width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:10px 14px;color:var(--txt);font-family:var(--B);font-size:14px;outline:none;cursor:pointer}
+.gb-select:focus{border-color:var(--gold)}
+.error-msg{background:rgba(232,69,69,.1);border:1px solid rgba(232,69,69,.3);color:var(--red);border-radius:6px;padding:12px 16px;font-size:14px;margin-bottom:16px}
 `;
 
 function RB({rank}) {
   return <span className={`rbadge ${rank===1?'r1':rank===2?'r2':rank===3?'r3':''}`}>{rank}</span>;
 }
 
-// ── HR DERBY ─────────────────────────────────────────────────────────────────
-function HRDerby({ data }) {
-  const [sec, setSec] = useState("standings");
-  const [stab, setStab] = useState("season");
-  const [search, setSearch] = useState("");
-  const [sel, setSel] = useState(null);
+// ── WORLD CUP ENTRY FORM ──────────────────────────────────────────────────────
+function WCEntryForm() {
+  const isOpen = new Date() < DEADLINE;
+  const [picks, setPicks] = useState({});
+  const [goldenBoot, setGoldenBoot] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
 
-  const { monthlyStandings, seasonStandings, rosters, hrLeaders } = data;
+  const totalGroups = WC_GROUPS.length;
+  const pickedCount = Object.keys(picks).length;
+  const allPicked = pickedCount === totalGroups;
+  const canSubmit = allPicked && goldenBoot && name.trim() && email.trim() && !submitting;
 
-  const display = stab === "season"
-    ? [...seasonStandings].sort((a,b) => b.season - a.season).map((s,i) => ({...s, rank:i+1}))
-    : [...monthlyStandings].sort((a,b) => b.month - a.month).map((s,i) => ({...s, rank:i+1}));
-  const maxV = stab === "season"
-    ? Math.max(...seasonStandings.map(s => s.season))
-    : Math.max(...monthlyStandings.map(s => s.month));
+  const selectTeam = (group, team) => {
+    setPicks(prev => ({...prev, [`group${group}`]: team}));
+  };
 
-  const filtRosters = rosters.filter(r =>
-    !search || r.teamName.toLowerCase().includes(search.toLowerCase()) ||
-    r.players.some(p => p.name.toLowerCase().includes(search.toLowerCase()))
-  );
+  const getMult = (m) => m === 2 ? "2x" : m === 3 ? "3x" : "1x";
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!name.trim()) { setError("Please enter your name."); return; }
+    if (!email.trim() || !email.includes("@")) { setError("Please enter a valid email."); return; }
+    if (!allPicked) { setError("Please pick one team from every group."); return; }
+    if (!goldenBoot) { setError("Please select a Golden Boot pick."); return; }
+
+    setSubmitting(true);
+    try {
+      const payload = { name: name.trim(), email: email.trim(), goldenBoot, ...picks };
+      await fetch(SUBMIT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSubmitted(true);
+    } catch(err) {
+      setError("Something went wrong. Please try again.");
+    }
+    setSubmitting(false);
+  };
+
+  if (submitted) {
+    return (
+      <div className="success-screen">
+        <div className="success-icon">🎉</div>
+        <div className="success-title">YOU'RE IN!</div>
+        <div className="success-sub">Your picks have been submitted. Good luck {name}! Check back here once the tournament starts to follow your team's progress.</div>
+        <div className="picks-summary">
+          <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"var(--gold)",marginBottom:12}}>YOUR PICKS</div>
+          {WC_GROUPS.map(g => (
+            <div className="picks-summary-row" key={g.group}>
+              <span className="picks-summary-label">Group {g.group} {g.multiplier > 1 ? `(${g.multiplier}×)` : ""}</span>
+              <span className="picks-summary-value">{picks[`group${g.group}`]}</span>
+            </div>
+          ))}
+          <div className="picks-summary-row">
+            <span className="picks-summary-label">🥇 Golden Boot</span>
+            <span className="picks-summary-value">{goldenBoot}</span>
+          </div>
+        </div>
+        <button className="submit-btn" onClick={() => { setSubmitted(false); setPicks({}); setGoldenBoot(""); setName(""); setEmail(""); }}>
+          SUBMIT ANOTHER ENTRY
+        </button>
+      </div>
+    );
+  }
+
+  if (!isOpen) {
+    return (
+      <div style={{textAlign:"center",padding:"60px 24px"}}>
+        <div style={{fontSize:64,marginBottom:16}}>🔒</div>
+        <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"var(--red)",marginBottom:12}}>SUBMISSIONS CLOSED</div>
+        <div style={{color:"var(--mut)",fontSize:16}}>The deadline for World Cup picks has passed.</div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="phdr">
+    <div className="entry-form">
+      <div className="deadline-banner">
+        <div className="deadline-banner-icon">⏰</div>
         <div>
-          <div className="ptitle">⚾ HOME RUN DERBY POOL 2026</div>
-          <div style={{fontSize:14,color:"var(--mut)",marginTop:4}}>{rosters.length} teams · Live stats · Auto-updates daily</div>
-        </div>
-        <div className="pmeta">
-          <div className="pill">Entry: <strong>50 units</strong></div>
-          <div className="pill">Teams: <strong>{rosters.length}</strong></div>
-          <div className="pill">HR Cap: <strong>156</strong></div>
-          <div className="pill">Prizes: <strong>Monthly + Season</strong></div>
+          <div className="deadline-banner-title">PICKS DUE JUNE 11 · 2:00 PM</div>
+          <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot player</div>
         </div>
       </div>
 
-      <div className="stabs">
-        {[{id:"standings",label:"🏆 Standings"},{id:"rosters",label:"📋 Rosters"},{id:"leaders",label:"⚾ HR Leaders"},{id:"rules",label:"📖 Rules"}].map(s=>(
-          <button key={s.id} className={`stab ${sec===s.id?"on":""}`} onClick={()=>setSec(s.id)}>{s.label}</button>
-        ))}
+      <div className="progress-bar-wrap">
+        <div className="progress-label">
+          <span>Groups picked: {pickedCount} / {totalGroups}</span>
+          <span>{allPicked ? "✅ All groups picked!" : `${totalGroups - pickedCount} remaining`}</span>
+        </div>
+        <div className="progress-bar">
+          <div className="progress-fill" style={{width:`${(pickedCount/totalGroups)*100}%`}}/>
+        </div>
       </div>
 
-      {sec==="standings" && (
-        <div>
-          <div className="podium">
-            {display.slice(0,3).map((t,i)=>{
-              const v = stab==="season" ? t.season : t.month;
-              return (
-                <div key={t.name} className={`pod p${i+1}`}>
-                  <div className="pos">{["🥇","🥈","🥉"][i]}</div>
-                  <div className="pteam">{t.name}</div>
-                  <div className="phr">{v}</div>
-                  <div className="plbl">HOME RUNS</div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="tabs2">
-            <button className={`t2 ${stab==="season"?"on":""}`} onClick={()=>setStab("season")}>SEASON TOTAL</button>
-            <button className={`t2 ${stab==="month"?"on":""}`} onClick={()=>setStab("month")}>MAY</button>
-          </div>
-          <div className="card">
-            <div className="chdr">
-              {stab==="season" ? "🏆 Season Standings" : "📅 May Standings"}
-              <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Click team → view roster</span>
-            </div>
-            <table>
-              <thead><tr><th style={{width:48}}>Rank</th><th>Team</th><th className="r">{stab==="season"?"Season HRs":"May HRs"}</th><th style={{width:160}}></th></tr></thead>
-              <tbody>
-                {display.map(s=>{
-                  const v = stab==="season" ? s.season : s.month;
-                  const pct = Math.round((v/maxV)*100);
-                  return (
-                    <tr key={s.name} style={{cursor:"pointer"}} onClick={()=>{setSec("rosters");setSel(s.name);}}>
-                      <td><RB rank={s.rank}/></td>
-                      <td style={{fontWeight:500}}>{s.name}</td>
-                      <td className="r"><span className="hn">{v}</span></td>
-                      <td><div className="lbar"><div className="lfill" style={{width:`${pct}%`,background:s.rank===1?"var(--gold)":s.rank===2?"#b0b8cc":s.rank===3?"#cd7f32":"var(--grn)"}}/></div></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div style={{padding:"12px 16px",background:"var(--sur)",border:"1px solid var(--bdr)",borderRadius:6,fontSize:13,color:"var(--mut)"}}>
-            <strong style={{color:"var(--gold)"}}>Payout Structure:</strong> Monthly: 1st $75 · 2nd $50 &nbsp;|&nbsp; Season: 1st $300 · 2nd $175 · 3rd $75
-          </div>
+      {/* Your Info */}
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">01 · </span>YOUR INFO</span></div>
+        <div className="form-group">
+          <label className="form-label">Your Name</label>
+          <input className="form-input" placeholder="First and last name" value={name} onChange={e=>setName(e.target.value)}/>
         </div>
-      )}
+        <div className="form-group">
+          <label className="form-label">Email Address</label>
+          <input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)}/>
+        </div>
+      </div>
 
-      {sec==="rosters" && (
-        <div>
-          <div className="srch">
-            <input className="si" placeholder="Search team or player..." value={search} onChange={e=>setSearch(e.target.value)}/>
-            {sel && <button className="stab on" onClick={()=>setSel(null)}>✕ {sel}</button>}
-          </div>
-          <div className="rgrid">
-            {(sel ? filtRosters.filter(r=>r.teamName===sel) : filtRosters).map(r=>(
-              <div className="rc" key={r.teamName}>
-                <div className="rchdr">
-                  <div>
-                    <div className="rcname">{r.teamName}</div>
-                    <div style={{fontSize:11,color:"var(--mut)",marginTop:2}}>Cap: {r.cap??'—'} · Season: {r.season} HR · May: {r.month} HR</div>
+      {/* Team Picks */}
+      <div className="form-section">
+        <div className="form-section-hdr">
+          <span><span className="num">02 · </span>PICK YOUR 12 TEAMS</span>
+          <span style={{fontSize:13,fontFamily:"var(--B)",fontWeight:400,color:"var(--mut)"}}>1 team per group</span>
+        </div>
+        {WC_GROUPS.map(g => {
+          const picked = picks[`group${g.group}`];
+          const mult = g.multiplier;
+          const multClass = mult === 2 ? "mult-2x" : mult === 3 ? "mult-3x" : "";
+          return (
+            <div className="form-group" key={g.group}>
+              <div className="group-pick-hdr">
+                <div>
+                  <div className="group-pick-label" style={{color: mult===2?"var(--blu)":mult===3?"var(--red)":"var(--gold)"}}>
+                    Pool Group {g.group}
+                    {mult > 1 && <span style={{marginLeft:8,fontSize:12}}>{mult === 2 ? <span className="m2x">2× DOUBLE</span> : <span className="m3x">3× TRIPLE</span>}</span>}
                   </div>
-                  <div className="rctots">
-                    <div className="rcstat" style={{textAlign:"center"}}>
-                      <div className="v">{r.month}</div><div className="lbl">MAY</div>
-                    </div>
-                    <div className="rcstat" style={{textAlign:"center"}}>
-                      <div className="v" style={{color:"var(--grn)"}}>{r.season}</div><div className="lbl">SEASON</div>
-                    </div>
-                  </div>
+                  {picked && <div style={{fontSize:12,color:"var(--mut)",marginTop:2}}>Selected: <strong style={{color:"var(--txt)"}}>{picked}</strong></div>}
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",padding:"6px 16px 4px",borderBottom:"1px solid var(--bdr)"}}>
-                  <span style={{fontSize:10,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase"}}>Player</span>
-                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:36}}>Cap</span>
-                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:40,paddingLeft:10}}>May</span>
-                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:44,paddingLeft:10}}>Season</span>
-                </div>
-                {r.players.map((p,i)=>(
-                  <div className="rpr" key={i} style={p.swap?{opacity:.65,background:"rgba(74,158,255,.04)"}:{}}>
-                    <div style={{flex:1,display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:13,fontWeight:p.swap?400:500}}>{p.name}</span>
-                      {p.swap && <span className="swapb">SWAP</span>}
-                    </div>
-                    <span style={{fontSize:11,color:"var(--mut)",textAlign:"right",minWidth:36}}>{p.cap2025}</span>
-                    <span style={{fontFamily:"var(--F)",fontSize:14,color:"var(--gold)",textAlign:"right",minWidth:40,paddingLeft:10}}>{p.month??'—'}</span>
-                    <span style={{fontFamily:"var(--F)",fontSize:14,color:"var(--grn)",textAlign:"right",minWidth:44,paddingLeft:10}}>{p.season??'—'}</span>
-                  </div>
+                <div className={`pick-check ${picked ? "done" : ""}`}>{picked ? "✓" : ""}</div>
+              </div>
+              <div className="team-select-grid">
+                {g.teams.map(team => (
+                  <button
+                    key={team}
+                    className={`team-btn ${picked===team ? `selected-${getMult(mult)}` : ""}`}
+                    onClick={() => selectTeam(g.group, team)}
+                  >
+                    {picked===team ? "✓ " : ""}{team}
+                  </button>
                 ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {sec==="leaders" && (
-        <div className="card">
-          <div className="chdr">⚾ 2026 MLB HR Leaders <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Live from sheet</span></div>
-          <table>
-            <thead><tr><th style={{width:48}}>Rank</th><th>Player</th><th>Team</th><th className="r">HRs</th></tr></thead>
-            <tbody>
-              {hrLeaders.slice(0,40).map((p,i)=>(
-                <tr key={i}>
-                  <td><RB rank={p.rank}/></td>
-                  <td style={{fontWeight:500}}>{p.name}</td>
-                  <td><span className="ttag">{p.team}</span></td>
-                  <td className="r"><span className="hn">{p.hr}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {sec==="rules" && (
-        <div className="card">
-          <div className="chdr">📖 Rules & Payouts</div>
-          <div style={{padding:20}}>
-            <div className="rbox">
-              {["Draft 7 players from the player pool. Combined 2025 HR total for all 7 players CANNOT exceed 156.",
-                "Designate an 8th SWAP player at submission. This player can replace one roster player before the All-Star Game, provided the swap doesn't push your total over 156.",
-                "Once a swap is made, no further changes are allowed. If no swap is used before the All-Star Game, your roster locks for the rest of the season.",
-                "Scoring is cumulative season-long HRs. If you use the swap, HRs count from the original player up to the swap date, then the new player's HRs count forward.",
-                "October regular season games count toward final totals. Play-in games do NOT count.",
-                "No free agent moves, no IR moves — no changes beyond the one allowed swap.",
-                "Monthly prizes for Top 2 teams each month (April–September). Monthly totals are NOT cumulative.",
-                "End-of-year prizes for Top 3 teams based on cumulative season HRs."].map((rule,i)=>(
-                <div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>
-              ))}
             </div>
-            <div style={{marginTop:16,padding:16,background:"var(--bg)",borderRadius:6,border:"1px solid var(--bdr)"}}>
-              <div style={{fontFamily:"var(--F)",fontSize:16,color:"var(--gold)",marginBottom:10,letterSpacing:1}}>PRIZE STRUCTURE</div>
-              {[["Monthly (Apr–Sep)","1st: $75 · 2nd: $50"],["Overall Season","1st: $300 · 2nd: $175 · 3rd: $75"],["All-Star Break","Possible bonus for 1st and 2nd (pending entries)"],["Ties","Split evenly"]].map(([k,v],i)=>(
-                <div className="ri" key={i}><span className="rn">★</span><span><strong style={{color:"var(--txt)"}}>{k}:</strong> {v}</span></div>
-              ))}
-            </div>
-          </div>
+          );
+        })}
+      </div>
+
+      {/* Golden Boot */}
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">03 · </span>GOLDEN BOOT PICK</span></div>
+        <div className="form-group">
+          <label className="form-label">Who will score the most goals in the tournament?</label>
+          <div style={{fontSize:12,color:"var(--mut)",marginBottom:10}}>$5 from each entry goes to whoever picks the correct Golden Boot winner. If multiple people pick correctly, the pot splits.</div>
+          <select className="gb-select" value={goldenBoot} onChange={e=>setGoldenBoot(e.target.value)}>
+            <option value="">— Select a player —</option>
+            {GOLDEN_BOOT_PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
         </div>
-      )}
+      </div>
+
+      {/* Submit */}
+      {error && <div className="error-msg">⚠️ {error}</div>}
+      <div className="form-section" style={{padding:20}}>
+        <div style={{fontSize:13,color:"var(--mut)",marginBottom:16,lineHeight:1.6}}>
+          By submitting you agree to pay the <strong style={{color:"var(--txt)"}}>$35 entry fee</strong>. Payment instructions will be sent to your email. Your picks are locked once submitted.
+        </div>
+        <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
+          {submitting ? "SUBMITTING..." : canSubmit ? "SUBMIT MY PICKS →" : `COMPLETE ALL ${totalGroups - pickedCount > 0 ? `(${totalGroups - pickedCount} groups left)` : "FIELDS"}`}
+        </button>
+      </div>
     </div>
   );
 }
 
-// ── WORLD CUP ─────────────────────────────────────────────────────────────────
+// ── WORLD CUP FULL PAGE ───────────────────────────────────────────────────────
 function WorldCup() {
-  const [sec, setSec] = useState("groups");
+  const [sec, setSec] = useState("enter");
   const ml = m => m===2?<span className="m2x">2× DOUBLE</span>:m===3?<span className="m3x">3× TRIPLE</span>:<span className="m1x">1×</span>;
   const gc = m => m===2?"g2x":m===3?"g3x":"g1x";
   return (
@@ -435,19 +437,20 @@ function WorldCup() {
         </div>
         <div className="pmeta">
           <div className="pill">Entry: <strong>$35</strong></div>
-          <div className="pill">Picks: <strong>12 teams + Golden Boot</strong></div>
+          <div className="pill">12 teams + Golden Boot</div>
           <div className="dbadge">⏰ Due: Jun 11 · 2PM</div>
         </div>
       </div>
       <div className="stabs">
-        {[{id:"groups",label:"🌍 Pool Groups"},{id:"scoring",label:"📊 Scoring"},{id:"rules",label:"📖 Rules"}].map(s=>(
+        {[{id:"enter",label:"✏️ Submit Entry"},{id:"groups",label:"🌍 Pool Groups"},{id:"scoring",label:"📊 Scoring"},{id:"rules",label:"📖 Rules"}].map(s=>(
           <button key={s.id} className={`stab ${sec===s.id?"on":""}`} onClick={()=>setSec(s.id)}>{s.label}</button>
         ))}
       </div>
+      {sec==="enter" && <WCEntryForm/>}
       {sec==="groups" && (
         <div>
           <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m1x">1×</span> Groups 1–5: Standard</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m1x">1×</span> Groups 1–5</div>
             <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m2x">2× DOUBLE</span> Groups 6–9</div>
             <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m3x">3× TRIPLE</span> Groups 10–12</div>
           </div>
@@ -479,7 +482,7 @@ function WorldCup() {
             <div className="card">
               <div className="chdr">🥇 Golden Boot Side Pool</div>
               <div style={{padding:"14px 16px"}}>
-                {[["$5/entry","Goes into the Golden Boot pot for the tournament's top scorer."],["$30/entry","Goes to top 2-3 finishers in the main pool."],["Split","If multiple people pick correctly, the pot splits."],["Rollover","If no one picks correctly, rolls into the main prize pool."]].map(([k,v],i,a)=>(
+                {[["$5/entry","Goes into the Golden Boot pot."],["$30/entry","Goes to top 2-3 finishers."],["Split","Multiple correct picks split the pot."],["Rollover","No correct pick? Rolls into main prize pool."]].map(([k,v],i,a)=>(
                   <div className="ri" key={i} style={i===a.length-1?{borderBottom:"none"}:{}}>
                     <span className="rn" style={{minWidth:64,fontSize:12,fontWeight:700}}>{k}</span>
                     <span style={{fontSize:13,color:"#c5cde0"}}>{v}</span>
@@ -502,7 +505,7 @@ function WorldCup() {
                 "Also select one player you think will win the Golden Boot (most goals). This is the side pool.",
                 "Picks are due before 2:00 PM on June 11, 2026. Entry fee is $35.",
                 "Payouts: $30 of entry goes to top 2-3 finishers; $5 goes to the Golden Boot side pool winner(s).",
-                "Email picks and payment to enter. A Google Sheet with rosters and scoring will be shared once the tournament begins.",
+                "Submit picks via this site. Payment instructions will follow via email.",
               ].map((rule,i)=>(
                 <div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>
               ))}
@@ -514,18 +517,164 @@ function WorldCup() {
   );
 }
 
+// ── HR DERBY ─────────────────────────────────────────────────────────────────
+function HRDerby({ data }) {
+  const [sec, setSec] = useState("standings");
+  const [stab, setStab] = useState("season");
+  const [search, setSearch] = useState("");
+  const [sel, setSel] = useState(null);
+  const { monthlyStandings, seasonStandings, rosters, hrLeaders } = data;
+  const display = stab==="season"
+    ? [...seasonStandings].sort((a,b)=>b.season-a.season).map((s,i)=>({...s,rank:i+1}))
+    : [...monthlyStandings].sort((a,b)=>b.month-a.month).map((s,i)=>({...s,rank:i+1}));
+  const maxV = stab==="season" ? Math.max(...seasonStandings.map(s=>s.season)) : Math.max(...monthlyStandings.map(s=>s.month));
+  const filtRosters = rosters.filter(r => !search || r.teamName.toLowerCase().includes(search.toLowerCase()) || r.players.some(p=>p.name.toLowerCase().includes(search.toLowerCase())));
+  return (
+    <div>
+      <div className="phdr">
+        <div>
+          <div className="ptitle">⚾ HOME RUN DERBY POOL 2026</div>
+          <div style={{fontSize:14,color:"var(--mut)",marginTop:4}}>{rosters.length} teams · Live stats · Auto-updates daily</div>
+        </div>
+        <div className="pmeta">
+          <div className="pill">Entry: <strong>50 units</strong></div>
+          <div className="pill">Teams: <strong>{rosters.length}</strong></div>
+          <div className="pill">HR Cap: <strong>156</strong></div>
+        </div>
+      </div>
+      <div className="stabs">
+        {[{id:"standings",label:"🏆 Standings"},{id:"rosters",label:"📋 Rosters"},{id:"leaders",label:"⚾ HR Leaders"},{id:"rules",label:"📖 Rules"}].map(s=>(
+          <button key={s.id} className={`stab ${sec===s.id?"on":""}`} onClick={()=>setSec(s.id)}>{s.label}</button>
+        ))}
+      </div>
+      {sec==="standings" && (
+        <div>
+          <div className="podium">
+            {display.slice(0,3).map((t,i)=>{
+              const v = stab==="season"?t.season:t.month;
+              return (
+                <div key={t.name} className={`pod p${i+1}`}>
+                  <div className="pos">{["🥇","🥈","🥉"][i]}</div>
+                  <div className="pteam">{t.name}</div>
+                  <div className="phr">{v}</div>
+                  <div className="plbl">HOME RUNS</div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="tabs2">
+            <button className={`t2 ${stab==="season"?"on":""}`} onClick={()=>setStab("season")}>SEASON TOTAL</button>
+            <button className={`t2 ${stab==="month"?"on":""}`} onClick={()=>setStab("month")}>MAY</button>
+          </div>
+          <div className="card">
+            <div className="chdr">{stab==="season"?"🏆 Season Standings":"📅 May Standings"}<span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Click team → view roster</span></div>
+            <table>
+              <thead><tr><th style={{width:48}}>Rank</th><th>Team</th><th className="r">{stab==="season"?"Season HRs":"May HRs"}</th><th style={{width:160}}></th></tr></thead>
+              <tbody>
+                {display.map(s=>{
+                  const v=stab==="season"?s.season:s.month;
+                  const pct=Math.round((v/maxV)*100);
+                  return (
+                    <tr key={s.name} style={{cursor:"pointer"}} onClick={()=>{setSec("rosters");setSel(s.name);}}>
+                      <td><RB rank={s.rank}/></td>
+                      <td style={{fontWeight:500}}>{s.name}</td>
+                      <td className="r"><span className="hn">{v}</span></td>
+                      <td><div className="lbar"><div className="lfill" style={{width:`${pct}%`,background:s.rank===1?"var(--gold)":s.rank===2?"#b0b8cc":s.rank===3?"#cd7f32":"var(--grn)"}}/></div></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{padding:"12px 16px",background:"var(--sur)",border:"1px solid var(--bdr)",borderRadius:6,fontSize:13,color:"var(--mut)"}}>
+            <strong style={{color:"var(--gold)"}}>Payout:</strong> Monthly: 1st $75 · 2nd $50 &nbsp;|&nbsp; Season: 1st $300 · 2nd $175 · 3rd $75
+          </div>
+        </div>
+      )}
+      {sec==="rosters" && (
+        <div>
+          <div className="srch">
+            <input className="si" placeholder="Search team or player..." value={search} onChange={e=>setSearch(e.target.value)}/>
+            {sel && <button className="stab on" onClick={()=>setSel(null)}>✕ {sel}</button>}
+          </div>
+          <div className="rgrid">
+            {(sel?filtRosters.filter(r=>r.teamName===sel):filtRosters).map(r=>(
+              <div className="rc" key={r.teamName}>
+                <div className="rchdr">
+                  <div><div className="rcname">{r.teamName}</div><div style={{fontSize:11,color:"var(--mut)",marginTop:2}}>Cap: {r.cap??'—'} · Season: {r.season} HR · May: {r.month} HR</div></div>
+                  <div className="rctots">
+                    <div className="rcstat" style={{textAlign:"center"}}><div className="v">{r.month}</div><div className="lbl">MAY</div></div>
+                    <div className="rcstat" style={{textAlign:"center"}}><div className="v" style={{color:"var(--grn)"}}>{r.season}</div><div className="lbl">SEASON</div></div>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",padding:"6px 16px 4px",borderBottom:"1px solid var(--bdr)"}}>
+                  <span style={{fontSize:10,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase"}}>Player</span>
+                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:36}}>Cap</span>
+                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:40,paddingLeft:10}}>May</span>
+                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:44,paddingLeft:10}}>Season</span>
+                </div>
+                {r.players.map((p,i)=>(
+                  <div className="rpr" key={i} style={p.swap?{opacity:.65,background:"rgba(74,158,255,.04)"}:{}}>
+                    <div style={{flex:1,display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:13,fontWeight:p.swap?400:500}}>{p.name}</span>
+                      {p.swap&&<span className="swapb">SWAP</span>}
+                    </div>
+                    <span style={{fontSize:11,color:"var(--mut)",textAlign:"right",minWidth:36}}>{p.cap2025}</span>
+                    <span style={{fontFamily:"var(--F)",fontSize:14,color:"var(--gold)",textAlign:"right",minWidth:40,paddingLeft:10}}>{p.month??'—'}</span>
+                    <span style={{fontFamily:"var(--F)",fontSize:14,color:"var(--grn)",textAlign:"right",minWidth:44,paddingLeft:10}}>{p.season??'—'}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {sec==="leaders" && (
+        <div className="card">
+          <div className="chdr">⚾ 2026 MLB HR Leaders</div>
+          <table>
+            <thead><tr><th style={{width:48}}>Rank</th><th>Player</th><th>Team</th><th className="r">HRs</th></tr></thead>
+            <tbody>
+              {hrLeaders.slice(0,40).map((p,i)=>(
+                <tr key={i}><td><RB rank={p.rank}/></td><td style={{fontWeight:500}}>{p.name}</td><td><span className="ttag">{p.team}</span></td><td className="r"><span className="hn">{p.hr}</span></td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {sec==="rules" && (
+        <div className="card">
+          <div className="chdr">📖 Rules & Payouts</div>
+          <div style={{padding:20}}>
+            <div className="rbox">
+              {["Draft 7 players from the player pool. Combined 2025 HR total cannot exceed 156.",
+                "Designate an 8th SWAP player. Can replace one roster player before the All-Star Game.",
+                "Once a swap is made, no further changes are allowed.",
+                "Scoring is cumulative season-long HRs.",
+                "October regular season games count. Play-in games do NOT.",
+                "No free agent or IR moves beyond the one allowed swap.",
+                "Monthly prizes for Top 2 teams (April–September). Monthly totals are NOT cumulative.",
+                "End-of-year prizes for Top 3 teams."].map((rule,i)=>(
+                <div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
-function Dashboard({ setTab, data, updatedAt }) {
-  const { monthlyStandings, seasonStandings } = data;
-  const sl = [...seasonStandings].sort((a,b)=>b.season-a.season)[0] || {};
-  const ml = [...monthlyStandings].sort((a,b)=>b.month-a.month)[0] || {};
+function Dashboard({setTab, data, updatedAt}) {
+  const {monthlyStandings, seasonStandings} = data;
+  const sl = [...seasonStandings].sort((a,b)=>b.season-a.season)[0]||{};
+  const ml = [...monthlyStandings].sort((a,b)=>b.month-a.month)[0]||{};
   return (
     <div>
       <div style={{marginBottom:28}}>
         <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:3,marginBottom:6}}>ACTIVE POOLS</div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <div className="updated"><span className="live-dot"/>Live data · Updated {updatedAt}</div>
-        </div>
+        <div className="updated"><span className="live-dot"/>Live data · Updated {updatedAt}</div>
       </div>
       <div className="dgrid">
         <div className="dc" onClick={()=>setTab("hr")}>
@@ -537,7 +686,6 @@ function Dashboard({ setTab, data, updatedAt }) {
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Season Leader</span><span className="dsv">{sl.name} ({sl.season} HR)</span></div>
             <div className="dsr"><span className="dsl">May Leader</span><span className="dsv">{ml.name} ({ml.month} HR)</span></div>
-            <div className="dsr"><span className="dsl">Monthly Prize</span><span className="dsv">1st $75 · 2nd $50</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Season Prize</span><span className="dsv">1st $300 · 2nd $175 · 3rd $75</span></div>
           </div>
           <button className="dcta">VIEW STANDINGS →</button>
@@ -549,12 +697,12 @@ function Dashboard({ setTab, data, updatedAt }) {
             <span className="bsoon" style={{marginLeft:"auto"}}>OPEN</span>
           </div>
           <div className="dcbody">
-            <div className="dsr"><span className="dsl">Format</span><span className="dsv">12 picks (1 per Pool Group)</span></div>
+            <div className="dsr"><span className="dsl">Format</span><span className="dsv">12 picks + Golden Boot</span></div>
             <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$35</span></div>
             <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Jun 11, 2026 · 2:00 PM</span></div>
-            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Side Pool</span><span className="dsv">Golden Boot ($5/entry)</span></div>
+            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"var(--grn)"}}>✅ Submissions Open</span></div>
           </div>
-          <button className="dcta">VIEW POOL →</button>
+          <button className="dcta">SUBMIT YOUR PICKS →</button>
         </div>
       </div>
       <div className="card">
@@ -563,30 +711,9 @@ function Dashboard({ setTab, data, updatedAt }) {
           <thead><tr><th>Rank</th><th>Team</th><th className="r">Season HRs</th><th className="r">May HRs</th></tr></thead>
           <tbody>
             {[...seasonStandings].sort((a,b)=>b.season-a.season).slice(0,5).map((s,i)=>{
-              const m = monthlyStandings.find(x=>x.name===s.name);
-              return (
-                <tr key={s.name}>
-                  <td><RB rank={i+1}/></td>
-                  <td style={{fontWeight:500}}>{s.name}</td>
-                  <td className="r"><span className="hn">{s.season}</span></td>
-                  <td className="r"><span className="hns">{m?.month??'—'}</span></td>
-                </tr>
-              );
+              const m=monthlyStandings.find(x=>x.name===s.name);
+              return (<tr key={s.name}><td><RB rank={i+1}/></td><td style={{fontWeight:500}}>{s.name}</td><td className="r"><span className="hn">{s.season}</span></td><td className="r"><span className="hns">{m?.month??'—'}</span></td></tr>);
             })}
-          </tbody>
-        </table>
-      </div>
-      <div className="card">
-        <div className="chdr">📅 Upcoming Deadlines</div>
-        <table>
-          <thead><tr><th>Pool</th><th>Deadline</th><th>Status</th><th>Entry</th></tr></thead>
-          <tbody>
-            <tr>
-              <td style={{fontWeight:600}}>⚽ World Cup Pool 2026</td>
-              <td>June 11, 2026 · 2:00 PM</td>
-              <td><span className="bsoon">OPEN</span></td>
-              <td>$35</td>
-            </tr>
           </tbody>
         </table>
       </div>
@@ -602,39 +729,21 @@ export default function App() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(CSV_URL)
-      .then(r => r.text())
-      .then(text => {
-        setData(parseCSV(text));
-        setUpdatedAt(new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}));
-      })
-      .catch(() => setError("Could not load live data. Please refresh."));
+    fetch(CSV_URL).then(r=>r.text()).then(text=>{
+      setData(parseCSV(text));
+      setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+    }).catch(()=>setError("Could not load live data. Please refresh."));
   }, []);
 
-  if (error) return (
-    <>
-      <style>{S}</style>
-      <div className="loading"><div style={{fontSize:40}}>⚠️</div><div>{error}</div></div>
-    </>
-  );
-
-  if (!data) return (
-    <>
-      <style>{S}</style>
-      <div className="loading">
-        <div className="spinner"/>
-        <div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>LOADING LIVE DATA...</div>
-        <div style={{fontSize:13}}>Fetching latest stats from Google Sheets</div>
-      </div>
-    </>
-  );
+  if (error) return (<><style>{S}</style><div className="loading"><div style={{fontSize:40}}>⚠️</div><div>{error}</div></div></>);
+  if (!data) return (<><style>{S}</style><div className="loading"><div className="spinner"/><div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>LOADING LIVE DATA...</div></div></>);
 
   return (
     <>
       <style>{S}</style>
       <div>
         <header className="hdr">
-          <div className="logo">WUG<span>DERBYPOOLS</span></div>
+          <div className="logo">POOL<span>HUB</span></div>
           <div style={{fontSize:13,color:"var(--mut)"}}>Fantasy Sports · 2026</div>
         </header>
         <nav className="nav">
