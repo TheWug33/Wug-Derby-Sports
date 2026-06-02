@@ -367,7 +367,6 @@ function WCEntryForm() {
         {WC_GROUPS.map(g => {
           const picked = picks[`group${g.group}`];
           const mult = g.multiplier;
-          const multClass = mult === 2 ? "mult-2x" : mult === 3 ? "mult-3x" : "";
           return (
             <div className="form-group" key={g.group}>
               <div className="group-pick-hdr">
