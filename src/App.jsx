@@ -1,8 +1,135 @@
 import { useState, useEffect } from "react";
 
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?output=csv";
-const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
-const DEADLINE = new Date("2026-06-11T14:00:00");
+const JUNE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=966793280&single=true&output=csv";
+const MAY_CSV_URL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?output=csv";
+const SUBMIT_URL   = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
+const DEADLINE     = new Date("2026-06-11T14:00:00");
+
+// ── GOLDEN BOOT PLAYERS (from RotoWire odds, ordered by favorites) ─────────────
+const GOLDEN_BOOT_PLAYERS = [
+  "Kylian Mbappé (+600)",
+  "Harry Kane (+700)",
+  "Lionel Messi (+1200)",
+  "Erling Haaland (+1400)",
+  "Lamine Yamal (+1800)",
+  "Mikel Oyarzabal (+1800)",
+  "Cristiano Ronaldo (+2000)",
+  "Vinicius Junior (+2200)",
+  "Lautaro Martinez (+2500)",
+  "Ousmane Dembele (+2800)",
+  "Romelu Lukaku (+3000)",
+  "Raphinha (+3000)",
+  "Nick Woltemade (+3500)",
+  "Julian Alvarez (+3500)",
+  "Alvaro Morata (+3500)",
+  "Richarlison (+3500)",
+  "Joao Pedro (+3500)",
+  "Cody Gakpo (+4000)",
+  "Bukayo Saka (+4000)",
+  "Memphis Depay (+4000)",
+  "Ferran Torres (+4000)",
+  "Mikel Merino (+4000)",
+  "Igor Thiago (+4000)",
+  "Jean-Philippe Mateta (+5000)",
+  "Jude Bellingham (+5000)",
+  "Goncalo Ramos (+5000)",
+  "Florian Wirtz (+5000)",
+  "Marcus Thuram (+5000)",
+  "Neymar (+5000)",
+  "Bruno Fernandes (+5000)",
+  "Luis Diaz (+5000)",
+  "Desire Doue (+5000)",
+  "Mohamed Salah (+5000)",
+  "Kai Havertz (+5000)",
+  "Dani Olmo (+5000)",
+  "Deniz Undav (+5000)",
+  "Viktor Gyokeres (+5000)",
+  "Enner Valencia (+6500)",
+  "Donyell Malen (+6500)",
+  "Morgan Rogers (+6500)",
+  "Santiago Gimenez (+6500)",
+  "Darwin Nunez (+6500)",
+  "Eberechi Eze (+6500)",
+  "Lois Openda (+6500)",
+  "Jamal Musiala (+6500)",
+  "Leandro Trossard (+6500)",
+  "Marcus Rashford (+6500)",
+  "Matheus Cunha (+6500)",
+  "Alexander Sorloth (+6500)",
+  "Alexander Isak (+6500)",
+  "Folarin Balogun (+8000)",
+  "Kevin De Bruyne (+8000)",
+  "Christian Pulisic (+8000)",
+  "Anthony Gordon (+8000)",
+  "Rafael Leao (+8000)",
+  "Jeremy Doku (+8000)",
+  "Sadio Mane (+8000)",
+  "Leroy Sane (+8000)",
+  "Jhon Duran (+8000)",
+  "Raul Jimenez (+8000)",
+  "Ante Budimir (+8000)",
+  "Brian Brobbey (+8000)",
+  "Christoph Baumgartner (+8000)",
+  "Ollie Watkins (+8000)",
+  "Omar Marmoush (+10000)",
+  "Arda Guler (+10000)",
+  "Mohammed Kudus (+10000)",
+  "Nicolas Jackson (+10000)",
+  "Jonathan David (+10000)",
+  "Kenan Yildiz (+10000)",
+  "Pedro Neto (+10000)",
+  "Haji Wright (+10000)",
+  "Nico Williams (+10000)",
+  "Ricardo Pepi (+10000)",
+  "Scott McTominay (+10000)",
+  "Bradley Barcola (+10000)",
+  "Casemiro (+10000)",
+  "Charles De Ketelaere (+10000)",
+  "Gabriel Martinelli (+10000)",
+  "Rayan Cherki (+10000)",
+  "Breel Embolo (+12000)",
+  "Ismaila Sarr (+15000)",
+  "Hamza Igamane (+15000)",
+  "Noa Lang (+15000)",
+  "Hirving Lozano (+15000)",
+  "Lee Kang-In (+15000)",
+  "Enzo Fernandez (+15000)",
+  "Jorgen Strand Larsen (+15000)",
+  "Riyad Mahrez (+15000)",
+  "James Rodriguez (+15000)",
+  "Brahim Diaz (+15000)",
+  "Andrej Kramaric (+15000)",
+  "Jhon Arias (+15000)",
+  "Ange-Yoan Bonny (+15000)",
+  "Ivan Toney (+15000)",
+  "Julian Quinones (+15000)",
+  "Pedri (+20000)",
+  "Che Adams (+20000)",
+  "Chris Wood (+20000)",
+  "Oscar Bobb (+20000)",
+  "Cyle Larin (+20000)",
+  "Martin Odegaard (+20000)",
+  "Daizen Maeda (+20000)",
+  "Amad Diallo (+20000)",
+  "Denzel Dumfries (+20000)",
+  "Ermedin Demirovic (+20000)",
+  "Lawrence Shankland (+20000)",
+  "Lucas Paqueta (+20000)",
+  "Nicolas Pepe (+20000)",
+  "Noah Okafor (+20000)",
+  "Zeki Amdouni (+20000)",
+  "Giovanni Reyna (+25000)",
+  "Julio Enciso (+25000)",
+  "Achraf Hakimi (+25000)",
+  "Anthony Elanga (+25000)",
+  "Cedric Bakambu (+25000)",
+  "Dan Ndoye (+25000)",
+  "Marcel Sabitzer (+25000)",
+  "Yoane Wissa (+25000)",
+  "Brenden Aaronson (+50000)",
+  "John McGinn (+50000)",
+  "Lyle Foster (+50000)",
+];
 
 // ── CSV PARSER ────────────────────────────────────────────────────────────────
 function parseCSV(text) {
@@ -16,6 +143,7 @@ function parseCSV(text) {
     cells.push(cur.trim());
     return cells;
   });
+
   const playerHR = {};
   for (const row of rows) {
     const nameCell = row[35] || "", hrCell = row[36] || "";
@@ -26,12 +154,14 @@ function parseCSV(text) {
       if (m) playerHR[m[1].trim()] = parseInt(rankedHR) || 0;
     }
   }
+
   const monthlyStandings = [];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 30; i++) {
     const r = rows[i];
     if (r && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[1] !== "Overall Standings")
       monthlyStandings.push({ rank: parseInt(r[0]), name: r[1], month: parseInt(r[2]) || 0, season: parseInt(r[3]) || 0 });
   }
+
   const seasonStandings = [];
   let inSeason = false;
   for (const r of rows) {
@@ -39,25 +169,38 @@ function parseCSV(text) {
     if (inSeason && r[0] && !isNaN(parseInt(r[0])) && r[1] && r[2])
       seasonStandings.push({ rank: parseInt(r[0]), name: r[1], season: parseInt(r[2]) || 0 });
   }
-  const SKIP = new Set(["2025","Total HRs","May","April","Season","Player","Monthly Winners","Overall Season Winners","1st - $75","2nd - $50","1st - $300","2nd - $175","3rd - $75","Overall Standings","Standings","Home Run Totals","Player Name","Rank",""]);
+
+  const SKIP = new Set(["2025","Total HRs","May","April","June","July","August","September","Season","Player",
+    "Monthly Winners","Overall Season Winners","1st - $75","2nd - $50","1st - $300","2nd - $175","3rd - $75",
+    "Overall Standings","Standings","Home Run Totals","Player Name","Rank",""]);
   const colGroups = [[6,7,8,9],[11,12,13,14],[16,17,18,19],[21,22,23,24]];
   const rosters = {}; const currentTeams = [null,null,null,null];
   for (const row of rows) {
     for (let gi = 0; gi < colGroups.length; gi++) {
       const [c0,c1,c2,c3] = colGroups[gi];
       const v0=row[c0]||"",v1=row[c1]||"",v2=row[c2]||"",v3=row[c3]||"";
-      if (v0 && !SKIP.has(v0) && isNaN(parseInt(v0)) && !v1) { currentTeams[gi]=v0; if (!rosters[v0]) rosters[v0]={players:[],cap:null,month:0,season:0}; }
-      else if (!isNaN(parseInt(v0)) && v1 && !SKIP.has(v1)) {
+      if (v0 && !SKIP.has(v0) && isNaN(parseInt(v0)) && !v1) {
+        currentTeams[gi]=v0;
+        if (!rosters[v0]) rosters[v0]={players:[],cap:null,month:0,season:0};
+      } else if (!isNaN(parseInt(v0)) && v1 && !SKIP.has(v1)) {
         const team=currentTeams[gi];
-        if (team && rosters[team]) { const mhr=v2!==""?parseInt(v2):null,shr=v3!==""?parseInt(v3):null; rosters[team].players.push({name:v1.trim(),cap2025:parseInt(v0),month:mhr,season:shr,current:playerHR[v1.trim()]??null,swap:mhr===null&&shr===null}); }
-      } else if (v1==="Total HRs" && !isNaN(parseInt(v0))) { const team=currentTeams[gi]; if (team&&rosters[team]){rosters[team].cap=parseInt(v0);rosters[team].month=parseInt(v2)||0;rosters[team].season=parseInt(v3)||0;} }
+        if (team && rosters[team]) {
+          const mhr=v2!==""?parseInt(v2):null,shr=v3!==""?parseInt(v3):null;
+          rosters[team].players.push({name:v1.trim(),cap2025:parseInt(v0),month:mhr,season:shr,current:playerHR[v1.trim()]??null,swap:mhr===null&&shr===null});
+        }
+      } else if (v1==="Total HRs" && !isNaN(parseInt(v0))) {
+        const team=currentTeams[gi];
+        if (team&&rosters[team]){rosters[team].cap=parseInt(v0);rosters[team].month=parseInt(v2)||0;rosters[team].season=parseInt(v3)||0;}
+      }
     }
   }
+
   const hrLeaders = [];
   for (const row of rows) {
     const cell=row[28]||"",hr=row[29]||"";
     if (cell&&hr!==""&&/^\d+\./.test(cell)){const m=cell.match(/^(\d+)\.\s+(.+?)\s+\(([A-Z]+)\)$/);if(m)hrLeaders.push({rank:parseInt(m[1]),name:m[2].trim(),team:m[3],hr:parseInt(hr)||0});}
   }
+
   return { monthlyStandings, seasonStandings, rosters: Object.entries(rosters).map(([teamName,d])=>({teamName,...d})), hrLeaders };
 }
 
@@ -82,21 +225,6 @@ const WC_SCORING = [
   {event:"Advance as best 3rd-place",pts:2},{event:"Win Round of 32 (reach R16)",pts:8},
   {event:"Reach Quarterfinals",pts:12},{event:"Reach Semifinals",pts:24},
   {event:"Reach Final",pts:36},{event:"Win Final (Champion)",pts:48},
-];
-const GOLDEN_BOOT_PLAYERS = [
-  "Kylian Mbappé","Erling Haaland","Vinicius Jr.","Lionel Messi","Cristiano Ronaldo",
-  "Neymar Jr.","Pedri","Jude Bellingham","Bukayo Saka","Phil Foden","Lamine Yamal",
-  "Rodri","Harry Kane","Romelu Lukaku","Darwin Nunez","Cody Gakpo","Richarlison",
-  "Dusan Vlahovic","Victor Osimhen","Sadio Mane","Mohamed Salah","Riyad Mahrez",
-  "Achraf Hakimi","Sofiane Boufal","Jordan Ayew","Andre Ayew","Taiwo Awoniyi",
-  "Bobby De Cordova-Reid","Cyle Larin","Tajon Buchanan","Jonathan David","Alphonso Davies",
-  "Takefusa Kubo","Daichi Kamada","Keylor Navas","Giorgian De Arrascaeta","Federico Valverde",
-  "Hirving Lozano","Raul Jimenez","Henry Martin","Haris Seferovic","Granit Xhaka",
-  "Xherdan Shaqiri","Luka Modric","Ivan Perisic","Mateo Kovacic","Enner Valencia",
-  "Jeremy Sarmiento","Son Heung-min","Hwang Hee-chan","Fakhreddine Ben Youssef",
-  "Youssef Msakni","Wahbi Khazri","Mehdi Taremi","Sardar Azmoun","Dodi Lukebakio",
-  "Jeremy Doku","Lois Openda","Amine Harit","Sofyan Amrabat","Hakim Ziyech","Youssef En-Nesyri",
-  "Other"
 ];
 
 // ── STYLES ────────────────────────────────────────────────────────────────────
@@ -177,7 +305,7 @@ input.si:focus{border-color:var(--gold)}input.si::placeholder{color:var(--mut)}
 .rcstat .v{font-family:var(--F);font-size:18px;color:var(--gold)}
 .rcstat .lbl{font-size:10px;color:var(--mut);letter-spacing:1px;text-transform:uppercase}
 .rpr{padding:8px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(42,48,68,.4);font-size:13px}.rpr:last-child{border-bottom:none}
-.tabs2{display:flex;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;overflow:hidden;margin-bottom:16px;width:fit-content}
+.tabs2{display:flex;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;overflow:hidden;margin-bottom:16px;width:fit-content;flex-wrap:wrap}
 .t2{padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--mut);transition:all .15s;letter-spacing:.5px}
 .t2.on{background:var(--gold);color:#000}
 .podium{display:flex;gap:12px;margin-bottom:20px}
@@ -193,24 +321,24 @@ input.si:focus{border-color:var(--gold)}input.si::placeholder{color:var(--mut)}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--grn);margin-right:6px;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .updated{font-size:12px;color:var(--mut);display:flex;align-items:center}
-
-/* ENTRY FORM STYLES */
+.month-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:1px;margin-left:8px}
+.month-current{background:rgba(61,214,140,.15);color:var(--grn);border:1px solid rgba(61,214,140,.3)}
+.month-past{background:var(--sur2);color:var(--mut);border:1px solid var(--bdr)}
+/* ENTRY FORM */
 .entry-form{max-width:800px;margin:0 auto}
 .form-section{background:var(--sur);border:1px solid var(--bdr);border-radius:8px;margin-bottom:20px;overflow:hidden}
 .form-section-hdr{padding:14px 20px;background:var(--bg);border-bottom:1px solid var(--bdr);font-family:var(--F);font-size:18px;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between}
 .form-section-hdr .num{color:var(--gold)}
-.form-group{padding:16px 20px;border-bottom:1px solid rgba(42,48,68,.4)}
-.form-group:last-child{border-bottom:none}
+.form-group{padding:16px 20px;border-bottom:1px solid rgba(42,48,68,.4)}.form-group:last-child{border-bottom:none}
 .form-label{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:8px;display:block}
 .form-input{width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:10px 14px;color:var(--txt);font-family:var(--B);font-size:14px;outline:none;transition:border-color .15s}
-.form-input:focus{border-color:var(--gold)}
-.form-input::placeholder{color:var(--mut)}
+.form-input:focus{border-color:var(--gold)}.form-input::placeholder{color:var(--mut)}
 .team-select-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;padding:4px 0}
 .team-btn{padding:9px 12px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--txt);font-family:var(--B);font-size:13px;cursor:pointer;transition:all .15s;text-align:left}
 .team-btn:hover{border-color:var(--gold);color:var(--gold)}
-.team-btn.selected-1x{border-color:var(--gold);background:rgba(245,200,66,.12);color:var(--gold);font-weight:600}
-.team-btn.selected-2x{border-color:var(--blu);background:rgba(74,158,255,.12);color:var(--blu);font-weight:600}
-.team-btn.selected-3x{border-color:var(--red);background:rgba(232,69,69,.12);color:var(--red);font-weight:600}
+.team-btn.sel-1x{border-color:var(--gold);background:rgba(245,200,66,.12);color:var(--gold);font-weight:600}
+.team-btn.sel-2x{border-color:var(--blu);background:rgba(74,158,255,.12);color:var(--blu);font-weight:600}
+.team-btn.sel-3x{border-color:var(--red);background:rgba(232,69,69,.12);color:var(--red);font-weight:600}
 .group-pick-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .group-pick-label{font-family:var(--F);font-size:16px;letter-spacing:1px}
 .pick-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--bdr);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
@@ -227,10 +355,8 @@ input.si:focus{border-color:var(--gold)}input.si::placeholder{color:var(--mut)}
 .success-title{font-family:var(--F);font-size:48px;letter-spacing:3px;color:var(--grn);margin-bottom:12px}
 .success-sub{color:var(--mut);font-size:16px;line-height:1.6;margin-bottom:32px}
 .picks-summary{background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:20px;text-align:left;margin-bottom:24px}
-.picks-summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(42,48,68,.4);font-size:14px}
-.picks-summary-row:last-child{border-bottom:none}
-.picks-summary-label{color:var(--mut)}
-.picks-summary-value{font-weight:600;color:var(--txt)}
+.picks-summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(42,48,68,.4);font-size:14px}.picks-summary-row:last-child{border-bottom:none}
+.picks-summary-label{color:var(--mut)}.picks-summary-value{font-weight:600;color:var(--txt)}
 .deadline-banner{background:rgba(232,69,69,.1);border:1px solid rgba(232,69,69,.3);border-radius:8px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px}
 .deadline-banner-icon{font-size:32px}
 .deadline-banner-title{font-family:var(--F);font-size:20px;color:var(--red);letter-spacing:1px}
@@ -260,11 +386,7 @@ function WCEntryForm() {
   const allPicked = pickedCount === totalGroups;
   const canSubmit = allPicked && goldenBoot && name.trim() && email.trim() && !submitting;
 
-  const selectTeam = (group, team) => {
-    setPicks(prev => ({...prev, [`group${group}`]: team}));
-  };
-
-  const getMult = (m) => m === 2 ? "2x" : m === 3 ? "3x" : "1x";
+  const getMult = m => m===2?"2x":m===3?"3x":"1x";
 
   const handleSubmit = async () => {
     setError("");
@@ -272,58 +394,44 @@ function WCEntryForm() {
     if (!email.trim() || !email.includes("@")) { setError("Please enter a valid email."); return; }
     if (!allPicked) { setError("Please pick one team from every group."); return; }
     if (!goldenBoot) { setError("Please select a Golden Boot pick."); return; }
-
     setSubmitting(true);
     try {
       const payload = { name: name.trim(), email: email.trim(), goldenBoot, ...picks };
-      await fetch(SUBMIT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      await fetch(SUBMIT_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
       setSubmitted(true);
-    } catch(err) {
-      setError("Something went wrong. Please try again.");
-    }
+    } catch { setError("Something went wrong. Please try again."); }
     setSubmitting(false);
   };
 
-  if (submitted) {
-    return (
-      <div className="success-screen">
-        <div className="success-icon">🎉</div>
-        <div className="success-title">YOU'RE IN!</div>
-        <div className="success-sub">Your picks have been submitted. Good luck {name}! Check back here once the tournament starts to follow your team's progress.</div>
-        <div className="picks-summary">
-          <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"var(--gold)",marginBottom:12}}>YOUR PICKS</div>
-          {WC_GROUPS.map(g => (
-            <div className="picks-summary-row" key={g.group}>
-              <span className="picks-summary-label">Group {g.group} {g.multiplier > 1 ? `(${g.multiplier}×)` : ""}</span>
-              <span className="picks-summary-value">{picks[`group${g.group}`]}</span>
-            </div>
-          ))}
-          <div className="picks-summary-row">
-            <span className="picks-summary-label">🥇 Golden Boot</span>
-            <span className="picks-summary-value">{goldenBoot}</span>
+  if (submitted) return (
+    <div className="success-screen">
+      <div className="success-icon">🎉</div>
+      <div className="success-title">YOU'RE IN!</div>
+      <div className="success-sub">Your picks have been submitted. Good luck {name}! Check back once the tournament starts to follow your teams.</div>
+      <div className="picks-summary">
+        <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"var(--gold)",marginBottom:12}}>YOUR PICKS</div>
+        {WC_GROUPS.map(g=>(
+          <div className="picks-summary-row" key={g.group}>
+            <span className="picks-summary-label">Group {g.group}{g.multiplier>1?` (${g.multiplier}×)`:""}</span>
+            <span className="picks-summary-value">{picks[`group${g.group}`]}</span>
           </div>
+        ))}
+        <div className="picks-summary-row">
+          <span className="picks-summary-label">🥇 Golden Boot</span>
+          <span className="picks-summary-value">{goldenBoot}</span>
         </div>
-        <button className="submit-btn" onClick={() => { setSubmitted(false); setPicks({}); setGoldenBoot(""); setName(""); setEmail(""); }}>
-          SUBMIT ANOTHER ENTRY
-        </button>
       </div>
-    );
-  }
+      <button className="submit-btn" onClick={()=>{setSubmitted(false);setPicks({});setGoldenBoot("");setName("");setEmail("");}}>SUBMIT ANOTHER ENTRY</button>
+    </div>
+  );
 
-  if (!isOpen) {
-    return (
-      <div style={{textAlign:"center",padding:"60px 24px"}}>
-        <div style={{fontSize:64,marginBottom:16}}>🔒</div>
-        <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"var(--red)",marginBottom:12}}>SUBMISSIONS CLOSED</div>
-        <div style={{color:"var(--mut)",fontSize:16}}>The deadline for World Cup picks has passed.</div>
-      </div>
-    );
-  }
+  if (!isOpen) return (
+    <div style={{textAlign:"center",padding:"60px 24px"}}>
+      <div style={{fontSize:64,marginBottom:16}}>🔒</div>
+      <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"var(--red)",marginBottom:12}}>SUBMISSIONS CLOSED</div>
+      <div style={{color:"var(--mut)",fontSize:16}}>The deadline for World Cup picks has passed.</div>
+    </div>
+  );
 
   return (
     <div className="entry-form">
@@ -331,21 +439,16 @@ function WCEntryForm() {
         <div className="deadline-banner-icon">⏰</div>
         <div>
           <div className="deadline-banner-title">PICKS DUE JUNE 11 · 2:00 PM</div>
-          <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot player</div>
+          <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot player · Odds from DraftKings</div>
         </div>
       </div>
-
       <div className="progress-bar-wrap">
         <div className="progress-label">
           <span>Groups picked: {pickedCount} / {totalGroups}</span>
-          <span>{allPicked ? "✅ All groups picked!" : `${totalGroups - pickedCount} remaining`}</span>
+          <span>{allPicked?"✅ All groups picked!":`${totalGroups-pickedCount} remaining`}</span>
         </div>
-        <div className="progress-bar">
-          <div className="progress-fill" style={{width:`${(pickedCount/totalGroups)*100}%`}}/>
-        </div>
+        <div className="progress-bar"><div className="progress-fill" style={{width:`${(pickedCount/totalGroups)*100}%`}}/></div>
       </div>
-
-      {/* Your Info */}
       <div className="form-section">
         <div className="form-section-hdr"><span><span className="num">01 · </span>YOUR INFO</span></div>
         <div className="form-group">
@@ -357,36 +460,26 @@ function WCEntryForm() {
           <input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)}/>
         </div>
       </div>
-
-      {/* Team Picks */}
       <div className="form-section">
-        <div className="form-section-hdr">
-          <span><span className="num">02 · </span>PICK YOUR 12 TEAMS</span>
-          <span style={{fontSize:13,fontFamily:"var(--B)",fontWeight:400,color:"var(--mut)"}}>1 team per group</span>
-        </div>
-        {WC_GROUPS.map(g => {
-          const picked = picks[`group${g.group}`];
-          const mult = g.multiplier;
+        <div className="form-section-hdr"><span><span className="num">02 · </span>PICK YOUR 12 TEAMS</span><span style={{fontSize:13,fontFamily:"var(--B)",fontWeight:400,color:"var(--mut)"}}>1 team per group</span></div>
+        {WC_GROUPS.map(g=>{
+          const picked=picks[`group${g.group}`];
           return (
             <div className="form-group" key={g.group}>
               <div className="group-pick-hdr">
                 <div>
-                  <div className="group-pick-label" style={{color: mult===2?"var(--blu)":mult===3?"var(--red)":"var(--gold)"}}>
+                  <div className="group-pick-label" style={{color:g.multiplier===2?"var(--blu)":g.multiplier===3?"var(--red)":"var(--gold)"}}>
                     Pool Group {g.group}
-                    {mult > 1 && <span style={{marginLeft:8,fontSize:12}}>{mult === 2 ? <span className="m2x">2× DOUBLE</span> : <span className="m3x">3× TRIPLE</span>}</span>}
+                    {g.multiplier>1&&<span style={{marginLeft:8,fontSize:12}}>{g.multiplier===2?<span className="m2x">2× DOUBLE</span>:<span className="m3x">3× TRIPLE</span>}</span>}
                   </div>
-                  {picked && <div style={{fontSize:12,color:"var(--mut)",marginTop:2}}>Selected: <strong style={{color:"var(--txt)"}}>{picked}</strong></div>}
+                  {picked&&<div style={{fontSize:12,color:"var(--mut)",marginTop:2}}>Selected: <strong style={{color:"var(--txt)"}}>{picked}</strong></div>}
                 </div>
-                <div className={`pick-check ${picked ? "done" : ""}`}>{picked ? "✓" : ""}</div>
+                <div className={`pick-check ${picked?"done":""}`}>{picked?"✓":""}</div>
               </div>
               <div className="team-select-grid">
-                {g.teams.map(team => (
-                  <button
-                    key={team}
-                    className={`team-btn ${picked===team ? `selected-${getMult(mult)}` : ""}`}
-                    onClick={() => selectTeam(g.group, team)}
-                  >
-                    {picked===team ? "✓ " : ""}{team}
+                {g.teams.map(team=>(
+                  <button key={team} className={`team-btn ${picked===team?`sel-${getMult(g.multiplier)}`:""}`} onClick={()=>setPicks(prev=>({...prev,[`group${g.group}`]:team}))}>
+                    {picked===team?"✓ ":""}{team}
                   </button>
                 ))}
               </div>
@@ -394,28 +487,24 @@ function WCEntryForm() {
           );
         })}
       </div>
-
-      {/* Golden Boot */}
       <div className="form-section">
         <div className="form-section-hdr"><span><span className="num">03 · </span>GOLDEN BOOT PICK</span></div>
         <div className="form-group">
-          <label className="form-label">Who will score the most goals in the tournament?</label>
+          <label className="form-label">Who will score the most goals? (Odds from DraftKings)</label>
           <div style={{fontSize:12,color:"var(--mut)",marginBottom:10}}>$5 from each entry goes to whoever picks the correct Golden Boot winner. If multiple people pick correctly, the pot splits.</div>
           <select className="gb-select" value={goldenBoot} onChange={e=>setGoldenBoot(e.target.value)}>
             <option value="">— Select a player —</option>
-            {GOLDEN_BOOT_PLAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+            {GOLDEN_BOOT_PLAYERS.map(p=><option key={p} value={p}>{p}</option>)}
           </select>
         </div>
       </div>
-
-      {/* Submit */}
-      {error && <div className="error-msg">⚠️ {error}</div>}
+      {error&&<div className="error-msg">⚠️ {error}</div>}
       <div className="form-section" style={{padding:20}}>
         <div style={{fontSize:13,color:"var(--mut)",marginBottom:16,lineHeight:1.6}}>
           By submitting you agree to pay the <strong style={{color:"var(--txt)"}}>$35 entry fee</strong>. Payment instructions will be sent to your email. Your picks are locked once submitted.
         </div>
         <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
-          {submitting ? "SUBMITTING..." : canSubmit ? "SUBMIT MY PICKS →" : `COMPLETE ALL ${totalGroups - pickedCount > 0 ? `(${totalGroups - pickedCount} groups left)` : "FIELDS"}`}
+          {submitting?"SUBMITTING...":canSubmit?"SUBMIT MY PICKS →":`COMPLETE ALL FIELDS ${!allPicked?`(${totalGroups-pickedCount} groups left)`:""}`}
         </button>
       </div>
     </div>
@@ -425,8 +514,8 @@ function WCEntryForm() {
 // ── WORLD CUP FULL PAGE ───────────────────────────────────────────────────────
 function WorldCup() {
   const [sec, setSec] = useState("enter");
-  const ml = m => m===2?<span className="m2x">2× DOUBLE</span>:m===3?<span className="m3x">3× TRIPLE</span>:<span className="m1x">1×</span>;
-  const gc = m => m===2?"g2x":m===3?"g3x":"g1x";
+  const ml = m=>m===2?<span className="m2x">2× DOUBLE</span>:m===3?<span className="m3x">3× TRIPLE</span>:<span className="m1x">1×</span>;
+  const gc = m=>m===2?"g2x":m===3?"g3x":"g1x";
   return (
     <div>
       <div className="phdr">
@@ -445,8 +534,8 @@ function WorldCup() {
           <button key={s.id} className={`stab ${sec===s.id?"on":""}`} onClick={()=>setSec(s.id)}>{s.label}</button>
         ))}
       </div>
-      {sec==="enter" && <WCEntryForm/>}
-      {sec==="groups" && (
+      {sec==="enter"&&<WCEntryForm/>}
+      {sec==="groups"&&(
         <div>
           <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
             <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m1x">1×</span> Groups 1–5</div>
@@ -463,13 +552,11 @@ function WorldCup() {
           </div>
         </div>
       )}
-      {sec==="scoring" && (
+      {sec==="scoring"&&(
         <div className="sgrid">
           <div className="card">
             <div className="chdr">📊 Base Scoring</div>
-            {WC_SCORING.map((s,i)=>(
-              <div className="srow" key={i}><span style={{fontSize:14,color:"#c5cde0"}}>{s.event}</span><span className="spts">{s.pts}</span></div>
-            ))}
+            {WC_SCORING.map((s,i)=><div className="srow" key={i}><span style={{fontSize:14,color:"#c5cde0"}}>{s.event}</span><span className="spts">{s.pts}</span></div>)}
           </div>
           <div>
             <div className="card" style={{marginBottom:16}}>
@@ -492,7 +579,7 @@ function WorldCup() {
           </div>
         </div>
       )}
-      {sec==="rules" && (
+      {sec==="rules"&&(
         <div className="card">
           <div className="chdr">📖 Pool Rules</div>
           <div style={{padding:20}}>
@@ -505,9 +592,7 @@ function WorldCup() {
                 "Picks are due before 2:00 PM on June 11, 2026. Entry fee is $35.",
                 "Payouts: $30 of entry goes to top 2-3 finishers; $5 goes to the Golden Boot side pool winner(s).",
                 "Submit picks via this site. Payment instructions will follow via email.",
-              ].map((rule,i)=>(
-                <div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>
-              ))}
+              ].map((rule,i)=><div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>)}
             </div>
           </div>
         </div>
@@ -517,17 +602,33 @@ function WorldCup() {
 }
 
 // ── HR DERBY ─────────────────────────────────────────────────────────────────
-function HRDerby({ data }) {
+function HRDerby({ allData, loading }) {
   const [sec, setSec] = useState("standings");
+  const [monthKey, setMonthKey] = useState("june"); // current month
   const [stab, setStab] = useState("season");
   const [search, setSearch] = useState("");
   const [sel, setSel] = useState(null);
-  const { monthlyStandings, seasonStandings, rosters, hrLeaders } = data;
+
+  const months = [
+    { key:"june", label:"June", isCurrent:true },
+    { key:"may",  label:"May",  isCurrent:false },
+  ];
+
+  const currentData = allData[monthKey] || allData["june"] || allData["may"];
+  if (!currentData) return <div className="loading"><div className="spinner"/></div>;
+
+  const { monthlyStandings, seasonStandings, rosters, hrLeaders } = currentData;
+
   const display = stab==="season"
     ? [...seasonStandings].sort((a,b)=>b.season-a.season).map((s,i)=>({...s,rank:i+1}))
     : [...monthlyStandings].sort((a,b)=>b.month-a.month).map((s,i)=>({...s,rank:i+1}));
-  const maxV = stab==="season" ? Math.max(...seasonStandings.map(s=>s.season)) : Math.max(...monthlyStandings.map(s=>s.month));
-  const filtRosters = rosters.filter(r => !search || r.teamName.toLowerCase().includes(search.toLowerCase()) || r.players.some(p=>p.name.toLowerCase().includes(search.toLowerCase())));
+  const maxV = stab==="season"
+    ? Math.max(1,...seasonStandings.map(s=>s.season))
+    : Math.max(1,...monthlyStandings.map(s=>s.month));
+
+  const filtRosters = rosters.filter(r=>!search||r.teamName.toLowerCase().includes(search.toLowerCase())||r.players.some(p=>p.name.toLowerCase().includes(search.toLowerCase())));
+  const currentMonth = months.find(m=>m.key===monthKey);
+
   return (
     <div>
       <div className="phdr">
@@ -541,16 +642,30 @@ function HRDerby({ data }) {
           <div className="pill">HR Cap: <strong>156</strong></div>
         </div>
       </div>
+
       <div className="stabs">
         {[{id:"standings",label:"🏆 Standings"},{id:"rosters",label:"📋 Rosters"},{id:"leaders",label:"⚾ HR Leaders"},{id:"rules",label:"📖 Rules"}].map(s=>(
           <button key={s.id} className={`stab ${sec===s.id?"on":""}`} onClick={()=>setSec(s.id)}>{s.label}</button>
         ))}
       </div>
-      {sec==="standings" && (
+
+      {sec==="standings"&&(
         <div>
+          {/* Month Selector */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Viewing Month</div>
+            <div className="tabs2">
+              {months.map(m=>(
+                <button key={m.key} className={`t2 ${monthKey===m.key?"on":""}`} onClick={()=>setMonthKey(m.key)}>
+                  {m.label}{m.isCurrent&&<span style={{marginLeft:4,fontSize:9,opacity:.8}}>●</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="podium">
             {display.slice(0,3).map((t,i)=>{
-              const v = stab==="season"?t.season:t.month;
+              const v=stab==="season"?t.season:t.month;
               return (
                 <div key={t.name} className={`pod p${i+1}`}>
                   <div className="pos">{["🥇","🥈","🥉"][i]}</div>
@@ -561,14 +676,21 @@ function HRDerby({ data }) {
               );
             })}
           </div>
+
           <div className="tabs2">
             <button className={`t2 ${stab==="season"?"on":""}`} onClick={()=>setStab("season")}>SEASON TOTAL</button>
-            <button className={`t2 ${stab==="month"?"on":""}`} onClick={()=>setStab("month")}>MAY</button>
+            <button className={`t2 ${stab==="month"?"on":""}`} onClick={()=>setStab("month")}>{currentMonth?.label?.toUpperCase()} HRs</button>
           </div>
+
           <div className="card">
-            <div className="chdr">{stab==="season"?"🏆 Season Standings":"📅 May Standings"}<span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Click team → view roster</span></div>
+            <div className="chdr">
+              {stab==="season"?"🏆 Season Standings":`📅 ${currentMonth?.label} Standings`}
+              {currentMonth?.isCurrent&&<span className="month-badge month-current">CURRENT</span>}
+              {!currentMonth?.isCurrent&&<span className="month-badge month-past">PAST</span>}
+              <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"var(--mut)",fontWeight:400}}>Click team → roster</span>
+            </div>
             <table>
-              <thead><tr><th style={{width:48}}>Rank</th><th>Team</th><th className="r">{stab==="season"?"Season HRs":"May HRs"}</th><th style={{width:160}}></th></tr></thead>
+              <thead><tr><th style={{width:48}}>Rank</th><th>Team</th><th className="r">{stab==="season"?"Season HRs":`${currentMonth?.label} HRs`}</th><th style={{width:160}}></th></tr></thead>
               <tbody>
                 {display.map(s=>{
                   const v=stab==="season"?s.season:s.month;
@@ -590,26 +712,27 @@ function HRDerby({ data }) {
           </div>
         </div>
       )}
-      {sec==="rosters" && (
+
+      {sec==="rosters"&&(
         <div>
           <div className="srch">
             <input className="si" placeholder="Search team or player..." value={search} onChange={e=>setSearch(e.target.value)}/>
-            {sel && <button className="stab on" onClick={()=>setSel(null)}>✕ {sel}</button>}
+            {sel&&<button className="stab on" onClick={()=>setSel(null)}>✕ {sel}</button>}
           </div>
           <div className="rgrid">
             {(sel?filtRosters.filter(r=>r.teamName===sel):filtRosters).map(r=>(
               <div className="rc" key={r.teamName}>
                 <div className="rchdr">
-                  <div><div className="rcname">{r.teamName}</div><div style={{fontSize:11,color:"var(--mut)",marginTop:2}}>Cap: {r.cap??'—'} · Season: {r.season} HR · May: {r.month} HR</div></div>
+                  <div><div className="rcname">{r.teamName}</div><div style={{fontSize:11,color:"var(--mut)",marginTop:2}}>Cap: {r.cap??'—'} · Season: {r.season} HR · {currentMonth?.label}: {r.month} HR</div></div>
                   <div className="rctots">
-                    <div className="rcstat" style={{textAlign:"center"}}><div className="v">{r.month}</div><div className="lbl">MAY</div></div>
+                    <div className="rcstat" style={{textAlign:"center"}}><div className="v">{r.month}</div><div className="lbl">{currentMonth?.label?.toUpperCase()}</div></div>
                     <div className="rcstat" style={{textAlign:"center"}}><div className="v" style={{color:"var(--grn)"}}>{r.season}</div><div className="lbl">SEASON</div></div>
                   </div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",padding:"6px 16px 4px",borderBottom:"1px solid var(--bdr)"}}>
                   <span style={{fontSize:10,color:"var(--mut)",letterSpacing:1,textTransform:"uppercase"}}>Player</span>
                   <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:36}}>Cap</span>
-                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:40,paddingLeft:10}}>May</span>
+                  <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:40,paddingLeft:10}}>{currentMonth?.label}</span>
                   <span style={{fontSize:10,color:"var(--mut)",textAlign:"right",minWidth:44,paddingLeft:10}}>Season</span>
                 </div>
                 {r.players.map((p,i)=>(
@@ -628,7 +751,8 @@ function HRDerby({ data }) {
           </div>
         </div>
       )}
-      {sec==="leaders" && (
+
+      {sec==="leaders"&&(
         <div className="card">
           <div className="chdr">⚾ 2026 MLB HR Leaders</div>
           <table>
@@ -641,7 +765,8 @@ function HRDerby({ data }) {
           </table>
         </div>
       )}
-      {sec==="rules" && (
+
+      {sec==="rules"&&(
         <div className="card">
           <div className="chdr">📖 Rules & Payouts</div>
           <div style={{padding:20}}>
@@ -665,8 +790,10 @@ function HRDerby({ data }) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
-function Dashboard({setTab, data, updatedAt}) {
-  const {monthlyStandings, seasonStandings} = data;
+function Dashboard({setTab, allData, updatedAt}) {
+  const currentData = allData["june"] || allData["may"];
+  if (!currentData) return <div className="loading"><div className="spinner"/></div>;
+  const {monthlyStandings, seasonStandings} = currentData;
   const sl = [...seasonStandings].sort((a,b)=>b.season-a.season)[0]||{};
   const ml = [...monthlyStandings].sort((a,b)=>b.month-a.month)[0]||{};
   return (
@@ -684,7 +811,7 @@ function Dashboard({setTab, data, updatedAt}) {
           </div>
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Season Leader</span><span className="dsv">{sl.name} ({sl.season} HR)</span></div>
-            <div className="dsr"><span className="dsl">May Leader</span><span className="dsv">{ml.name} ({ml.month} HR)</span></div>
+            <div className="dsr"><span className="dsl">June Leader</span><span className="dsv">{ml.name} ({ml.month} HR)</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Season Prize</span><span className="dsv">1st $300 · 2nd $175 · 3rd $75</span></div>
           </div>
           <button className="dcta">VIEW STANDINGS →</button>
@@ -707,7 +834,7 @@ function Dashboard({setTab, data, updatedAt}) {
       <div className="card">
         <div className="chdr">🏆 HR Derby — Season Top 5</div>
         <table>
-          <thead><tr><th>Rank</th><th>Team</th><th className="r">Season HRs</th><th className="r">May HRs</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Team</th><th className="r">Season HRs</th><th className="r">June HRs</th></tr></thead>
           <tbody>
             {[...seasonStandings].sort((a,b)=>b.season-a.season).slice(0,5).map((s,i)=>{
               const m=monthlyStandings.find(x=>x.name===s.name);
@@ -723,19 +850,30 @@ function Dashboard({setTab, data, updatedAt}) {
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("dashboard");
-  const [data, setData] = useState(null);
+  const [allData, setAllData] = useState({});
   const [updatedAt, setUpdatedAt] = useState("");
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(CSV_URL).then(r=>r.text()).then(text=>{
-      setData(parseCSV(text));
-      setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
-    }).catch(()=>setError("Could not load live data. Please refresh."));
+    const fetchAll = async () => {
+      try {
+        const [juneRes, mayRes] = await Promise.all([
+          fetch(JUNE_CSV_URL).then(r=>r.text()),
+          fetch(MAY_CSV_URL).then(r=>r.text()),
+        ]);
+        setAllData({ june: parseCSV(juneRes), may: parseCSV(mayRes) });
+        setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+      } catch {
+        setError("Could not load live data. Please refresh.");
+      }
+      setLoading(false);
+    };
+    fetchAll();
   }, []);
 
   if (error) return (<><style>{S}</style><div className="loading"><div style={{fontSize:40}}>⚠️</div><div>{error}</div></div></>);
-  if (!data) return (<><style>{S}</style><div className="loading"><div className="spinner"/><div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>LOADING LIVE DATA...</div></div></>);
+  if (loading) return (<><style>{S}</style><div className="loading"><div className="spinner"/><div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>LOADING LIVE DATA...</div></div></>);
 
   return (
     <>
@@ -751,9 +889,9 @@ export default function App() {
           ))}
         </nav>
         <main className="main">
-          {tab==="dashboard" && <Dashboard setTab={setTab} data={data} updatedAt={updatedAt}/>}
-          {tab==="hr" && <HRDerby data={data}/>}
-          {tab==="wc" && <WorldCup/>}
+          {tab==="dashboard"&&<Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt}/>}
+          {tab==="hr"&&<HRDerby allData={allData} loading={loading}/>}
+          {tab==="wc"&&<WorldCup/>}
         </main>
       </div>
     </>
