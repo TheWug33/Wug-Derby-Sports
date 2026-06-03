@@ -397,6 +397,17 @@ function WCEntryForm() {
     if (!goldenBoot) { setError("Please select a Golden Boot pick."); return; }
     setSubmitting(true);
     try {
+      // Check existing entry count for this email
+      const checkRes = await fetch(SUBMIT_URL + "?email=" + encodeURIComponent(email.trim()));
+      const checkData = await checkRes.json();
+      const existingCount = checkData.submissions
+        ? checkData.submissions.filter(s => s.email.toLowerCase() === email.trim().toLowerCase()).length
+        : 0;
+      if (existingCount >= 2) {
+        setError("This email already has 2 entries — the maximum allowed. Please use a different email if you'd like to enter again.");
+        setSubmitting(false);
+        return;
+      }
       const payload = { name: name.trim(), email: email.trim(), goldenBoot, ...picks };
       await fetch(SUBMIT_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
       setSubmitted(true);
@@ -408,7 +419,7 @@ function WCEntryForm() {
     <div className="success-screen">
       <div className="success-icon">🎉</div>
       <div className="success-title">YOU'RE IN!</div>
-      <div className="success-sub">Your picks have been submitted. Good luck {name}! Check back once the tournament starts to follow your teams.</div>
+      <div className="success-sub">Your picks have been submitted. Good luck {name}! Check back once the tournament starts to follow your teams.<br/><br/><span style={{color:"var(--gold)"}}>You may submit 1 more entry</span> if you'd like a second lineup.</div>
       <div className="picks-summary">
         <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"var(--gold)",marginBottom:12}}>YOUR PICKS</div>
         {WC_GROUPS.map(g=>(
@@ -440,7 +451,7 @@ function WCEntryForm() {
         <div className="deadline-banner-icon">⏰</div>
         <div>
           <div className="deadline-banner-title">PICKS DUE JUNE 11 · 2:00 PM</div>
-          <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot player</div>
+          <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot player · Maximum 2 entries per person</div>
         </div>
       </div>
       <div className="progress-bar-wrap">
