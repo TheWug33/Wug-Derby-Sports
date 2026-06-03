@@ -513,7 +513,7 @@ function WCEntryForm() {
       {error&&<div className="error-msg">⚠️ {error}</div>}
       <div className="form-section" style={{padding:20}}>
         <div style={{fontSize:13,color:"var(--mut)",marginBottom:16,lineHeight:1.6}}>
-          By submitting you agree to pay the <strong style={{color:"var(--txt)"}}>$35 entry fee</strong>. Payment instructions will be sent to your email. Your picks are locked once submitted.
+          By submitting you agree to pay the <strong style={{color:"var(--txt)"}}>$35 entry fee</strong>. Payment can be sent through Zelle to <strong style={{color:"var(--gold)"}}>scott.wbeverly@gmail.com</strong> or contact that email address with any questions. Once the tournament starts, pool entries will be announced on this site, along with an email to the group. Thanks for joining and good luck!
         </div>
         <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
           {submitting?"SUBMITTING...":canSubmit?"SUBMIT MY PICKS →":`COMPLETE ALL FIELDS ${!allPicked?`(${totalGroups-pickedCount} groups left)`:""}`}
@@ -894,7 +894,7 @@ export default function App() {
       <style>{S}</style>
       <div>
         <header className="hdr">
-          <div className="logo">POOL<span>HUB</span></div>
+          <div className="logo" style={{cursor:"pointer"}} onClick={()=>setTab("dashboard")}>POOL<span>HUB</span></div>
           <div style={{fontSize:13,color:"var(--mut)"}}>Fantasy Sports · 2026</div>
         </header>
         <nav className="nav">
