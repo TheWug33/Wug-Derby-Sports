@@ -235,7 +235,7 @@ const S = `
 :root{--bg:#000000;--sur:#0a1a1a;--sur2:#0f2424;--bdr:#1a3a3a;--gold:#00c4b4;--gold2:#00a89a;--red:#e84545;--grn:#00e5d4;--blu:#00c4b4;--txt:#ffffff;--mut:#5fa89e;--F:'Bebas Neue',sans-serif;--B:'DM Sans',sans-serif}
 body{background:#000000;color:#ffffff;font-family:var(--B);min-height:100vh}
 .hdr{background:#000000;border-bottom:2px solid #ffffff;padding:0 24px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;height:64px}
-.logo{font-family:var(--F);font-size:28px;letter-spacing:2px;color:#00c4b4;text-shadow:-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff,1px 1px 0 #fff;cursor:pointer}
+.logo{font-family:var(--F);font-size:28px;letter-spacing:2px;color:#00c4b4;cursor:pointer}
 .logo span{color:#ffffff;}
 .nav{display:flex;gap:4px;padding:16px 24px 0;border-bottom:2px solid #ffffff;background:#000000;overflow-x:auto}
 .ntab{padding:10px 20px 12px;border:none;background:transparent;color:#5fa89e;font-family:var(--F);font-size:18px;letter-spacing:1px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap}
