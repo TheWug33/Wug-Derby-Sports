@@ -375,10 +375,19 @@ function RB({rank}) {
 // ── WORLD CUP ENTRY FORM ──────────────────────────────────────────────────────
 function WCEntryForm() {
   const isOpen = new Date() < DEADLINE;
+
+  // Step 1: email lookup. Step 2: choose entry. Step 3: fill form.
+  const [step, setStep] = useState("lookup"); // "lookup" | "choose" | "form"
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [lookupName, setLookupName] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+  const [existingEntries, setExistingEntries] = useState([]);
+  const [entryNumber, setEntryNumber] = useState(1);
+  const [isEditing, setIsEditing] = useState(false);
+
   const [picks, setPicks] = useState({});
   const [goldenBoot, setGoldenBoot] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -386,43 +395,122 @@ function WCEntryForm() {
   const totalGroups = WC_GROUPS.length;
   const pickedCount = Object.keys(picks).length;
   const allPicked = pickedCount === totalGroups;
-  const canSubmit = allPicked && goldenBoot && name.trim() && email.trim() && !submitting;
-
+  const canSubmit = allPicked && goldenBoot && !submitting;
   const getMult = m => m===2?"2x":m===3?"3x":"1x";
+
+  const entryFromRow = (entry) => {
+    const p = {};
+    for (let i = 1; i <= 12; i++) p[`group${i}`] = entry[`group${i}`] || "";
+    return p;
+  };
+
+  // Step 1: look up email
+  const handleLookup = async () => {
+    setLookupError("");
+    if (!lookupName.trim()) { setLookupError("Please enter your name."); return; }
+    if (!lookupEmail.trim() || !lookupEmail.includes("@")) { setLookupError("Please enter a valid email."); return; }
+    setLookupLoading(true);
+    try {
+      const res = await fetch(SUBMIT_URL + "?email=" + encodeURIComponent(lookupEmail.trim()));
+      const data = await res.json();
+      const entries = data.submissions || [];
+      setExistingEntries(entries);
+      if (entries.length === 0) {
+        // No existing entries — go straight to new form
+        setEntryNumber(1);
+        setIsEditing(false);
+        setPicks({});
+        setGoldenBoot("");
+        setStep("form");
+      } else if (entries.length === 1) {
+        // One entry — ask if they want to edit or add new
+        setStep("choose");
+      } else {
+        // Two entries — must edit one
+        setStep("choose");
+      }
+    } catch { setLookupError("Could not check your entries. Please try again."); }
+    setLookupLoading(false);
+  };
+
+  const handleChooseEdit = (entry) => {
+    setEntryNumber(entry.entryNumber || 1);
+    setIsEditing(true);
+    setPicks(entryFromRow(entry));
+    setGoldenBoot(entry.goldenBoot || "");
+    setStep("form");
+  };
+
+  const handleChooseNew = () => {
+    setEntryNumber(2);
+    setIsEditing(false);
+    setPicks({});
+    setGoldenBoot("");
+    setStep("form");
+  };
 
   const handleSubmit = async () => {
     setError("");
-    if (!name.trim()) { setError("Please enter your name."); return; }
-    if (!email.trim() || !email.includes("@")) { setError("Please enter a valid email."); return; }
     if (!allPicked) { setError("Please pick one team from every group."); return; }
     if (!goldenBoot) { setError("Please select a Golden Boot pick."); return; }
     setSubmitting(true);
     try {
-      // Check existing entry count for this email
-      const checkRes = await fetch(SUBMIT_URL + "?email=" + encodeURIComponent(email.trim()));
-      const checkData = await checkRes.json();
-      const existingCount = checkData.submissions
-        ? checkData.submissions.filter(s => s.email.toLowerCase() === email.trim().toLowerCase()).length
-        : 0;
-      if (existingCount >= 2) {
-        setError("This email already has 2 entries — the maximum allowed. Please use a different email if you'd like to enter again.");
-        setSubmitting(false);
-        return;
-      }
-      const payload = { name: name.trim(), email: email.trim(), goldenBoot, ...picks };
-      await fetch(SUBMIT_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+      const payload = {
+        name: lookupName.trim(),
+        email: lookupEmail.trim(),
+        goldenBoot,
+        entryNumber,
+        ...picks
+      };
+      await fetch(SUBMIT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
       setSubmitted(true);
     } catch { setError("Something went wrong. Please try again."); }
     setSubmitting(false);
   };
 
+  const resetAll = () => {
+    setStep("lookup");
+    setLookupEmail("");
+    setLookupName("");
+    setExistingEntries([]);
+    setPicks({});
+    setGoldenBoot("");
+    setSubmitted(false);
+    setError("");
+    setIsEditing(false);
+  };
+
+  // ── CLOSED ────────────────────────────────────────────────────────────────
+  if (!isOpen) return (
+    <div style={{textAlign:"center",padding:"60px 24px"}}>
+      <div style={{fontSize:64,marginBottom:16}}>🔒</div>
+      <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"#e84545",marginBottom:12}}>SUBMISSIONS CLOSED</div>
+      <div style={{color:"#5fa89e",fontSize:16}}>The deadline for World Cup picks has passed.</div>
+    </div>
+  );
+
+  // ── SUCCESS ───────────────────────────────────────────────────────────────
   if (submitted) return (
     <div className="success-screen">
-      <div className="success-icon">🎉</div>
-      <div className="success-title">YOU'RE IN!</div>
-      <div className="success-sub">Your picks have been submitted. Good luck {name}! Check back once the tournament starts to follow your teams.<br/><br/><span style={{color:"var(--gold)"}}>You may submit 1 more entry</span> if you'd like a second lineup.</div>
+      <div className="success-icon">{isEditing ? "✏️" : "🎉"}</div>
+      <div className="success-title">{isEditing ? "PICKS UPDATED!" : "YOU'RE IN!"}</div>
+      <div className="success-sub">
+        {isEditing
+          ? `Entry ${entryNumber} has been updated successfully, ${lookupName.split(" ")[0]}! Your new picks are locked in below.`
+          : `Your picks have been submitted. Good luck ${lookupName.split(" ")[0]}! Check back once the tournament starts.`}
+        {!isEditing && existingEntries.length === 0 && (
+          <><br/><br/><span style={{color:"#00c4b4"}}>You may submit 1 more entry if you'd like a second lineup.</span></>
+        )}
+      </div>
       <div className="picks-summary">
-        <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"var(--gold)",marginBottom:12}}>YOUR PICKS</div>
+        <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"#00c4b4",marginBottom:12}}>
+          {isEditing ? `UPDATED ENTRY ${entryNumber} PICKS` : "YOUR PICKS"}
+        </div>
         {WC_GROUPS.map(g=>(
           <div className="picks-summary-row" key={g.group}>
             <span className="picks-summary-label">Group {g.group}{g.multiplier>1?` (${g.multiplier}×)`:""}</span>
@@ -434,27 +522,115 @@ function WCEntryForm() {
           <span className="picks-summary-value">{goldenBoot}</span>
         </div>
       </div>
-      <button className="submit-btn" onClick={()=>{setSubmitted(false);setPicks({});setGoldenBoot("");setName("");setEmail("");}}>SUBMIT ANOTHER ENTRY</button>
+      <button className="submit-btn" onClick={resetAll}>
+        {existingEntries.length < 1 ? "SUBMIT ANOTHER ENTRY" : "BACK TO MY ENTRIES"}
+      </button>
     </div>
   );
 
-  if (!isOpen) return (
-    <div style={{textAlign:"center",padding:"60px 24px"}}>
-      <div style={{fontSize:64,marginBottom:16}}>🔒</div>
-      <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"var(--red)",marginBottom:12}}>SUBMISSIONS CLOSED</div>
-      <div style={{color:"var(--mut)",fontSize:16}}>The deadline for World Cup picks has passed.</div>
-    </div>
-  );
-
-  return (
+  // ── STEP 1: LOOKUP ────────────────────────────────────────────────────────
+  if (step === "lookup") return (
     <div className="entry-form">
       <div className="deadline-banner">
         <div className="deadline-banner-icon">⏰</div>
         <div>
           <div className="deadline-banner-title">PICKS DUE JUNE 11 · 2:00 PM</div>
-          <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot player · Maximum 2 entries per person</div>
+          <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot · Max 2 entries per person</div>
         </div>
       </div>
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">01 · </span>GET STARTED</span></div>
+        <div className="form-group">
+          <label className="form-label">Your Name</label>
+          <input className="form-input" placeholder="First and last name" value={lookupName} onChange={e=>setLookupName(e.target.value)}/>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Email Address</label>
+          <div style={{fontSize:12,color:"#5fa89e",marginBottom:8}}>We'll use this to look up any existing entries so you can edit them.</div>
+          <input className="form-input" type="email" placeholder="your@email.com" value={lookupEmail} onChange={e=>setLookupEmail(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&handleLookup()}/>
+        </div>
+        {lookupError && <div className="error-msg" style={{margin:"0 20px 16px"}}>⚠️ {lookupError}</div>}
+        <div style={{padding:"16px 20px"}}>
+          <button className="submit-btn" onClick={handleLookup} disabled={lookupLoading}>
+            {lookupLoading ? "CHECKING..." : "CONTINUE →"}
+          </button>
+        </div>
+      </div>
+      <div style={{padding:"16px 20px",background:"#000",border:"2px solid #ffffff",borderRadius:8,fontSize:13,color:"#5fa89e",lineHeight:1.7}}>
+        By submitting you agree to pay the <strong style={{color:"#ffffff"}}>$35 entry fee</strong>. Payment can be sent through Zelle to <strong style={{color:"#00c4b4"}}>scott.wbeverly@gmail.com</strong> or contact that email with any questions. Once the tournament starts, pool entries will be announced on this site, along with an email to the group. Thanks for joining and good luck!
+      </div>
+    </div>
+  );
+
+  // ── STEP 2: CHOOSE ENTRY ──────────────────────────────────────────────────
+  if (step === "choose") return (
+    <div className="entry-form">
+      <div className="form-section">
+        <div className="form-section-hdr">
+          <span><span className="num">✓ </span>FOUND YOUR {existingEntries.length === 1 ? "ENTRY" : "ENTRIES"}</span>
+        </div>
+        <div style={{padding:"20px"}}>
+          <div style={{fontSize:14,color:"#5fa89e",marginBottom:20}}>
+            Hi <strong style={{color:"#ffffff"}}>{lookupName.split(" ")[0]}</strong>! We found {existingEntries.length} existing {existingEntries.length===1?"entry":"entries"} for <strong style={{color:"#00c4b4"}}>{lookupEmail}</strong>. What would you like to do?
+          </div>
+          {existingEntries.map((entry, i) => (
+            <div key={i} style={{background:"#0a1a1a",border:"1px solid #ffffff",borderRadius:8,padding:16,marginBottom:12}}>
+              <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:1,color:"#00c4b4",marginBottom:10}}>
+                ENTRY {entry.entryNumber || i+1}
+                <span style={{fontSize:11,color:"#5fa89e",fontFamily:"var(--B)",fontWeight:400,marginLeft:10,letterSpacing:0}}>
+                  Last updated {new Date(entry.lastUpdated||entry.timestamp).toLocaleDateString()}
+                </span>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 16px",marginBottom:14}}>
+                {WC_GROUPS.map(g=>(
+                  <div key={g.group} style={{fontSize:12,display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:"1px solid #1a3a3a"}}>
+                    <span style={{color:"#5fa89e"}}>Group {g.group}{g.multiplier>1?` (${g.multiplier}×)`:""}</span>
+                    <span style={{color:"#ffffff",fontWeight:600}}>{entry[`group${g.group}`]||"—"}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:12,display:"flex",justifyContent:"space-between",padding:"6px 0",marginBottom:14,borderBottom:"1px solid #1a3a3a"}}>
+                <span style={{color:"#5fa89e"}}>🥇 Golden Boot</span>
+                <span style={{color:"#ffffff",fontWeight:600}}>{entry.goldenBoot||"—"}</span>
+              </div>
+              <button className="submit-btn" style={{fontSize:16,padding:12}} onClick={()=>handleChooseEdit(entry)}>
+                ✏️ EDIT THIS ENTRY
+              </button>
+            </div>
+          ))}
+          {existingEntries.length < 2 && (
+            <div style={{marginTop:8}}>
+              <button className="submit-btn" style={{background:"#0a1a1a",color:"#00c4b4",border:"2px solid #00c4b4",fontSize:16,padding:12}} onClick={handleChooseNew}>
+                + SUBMIT A SECOND ENTRY
+              </button>
+            </div>
+          )}
+          <div style={{marginTop:12,textAlign:"center"}}>
+            <button onClick={resetAll} style={{background:"transparent",border:"none",color:"#5fa89e",cursor:"pointer",fontSize:13,textDecoration:"underline"}}>
+              ← Use a different email
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── STEP 3: FORM ──────────────────────────────────────────────────────────
+  return (
+    <div className="entry-form">
+      <div style={{background:"#0a1a1a",border:"2px solid #00c4b4",borderRadius:8,padding:"14px 20px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:1,color:"#00c4b4"}}>
+            {isEditing ? `✏️ EDITING ENTRY ${entryNumber}` : "📝 NEW ENTRY"}
+          </div>
+          <div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>{lookupName} · {lookupEmail}</div>
+        </div>
+        <button onClick={()=>setStep(existingEntries.length>0?"choose":"lookup")} style={{background:"transparent",border:"1px solid #5fa89e",borderRadius:4,color:"#5fa89e",cursor:"pointer",fontSize:12,padding:"4px 12px"}}>
+          ← Back
+        </button>
+      </div>
+
       <div className="progress-bar-wrap">
         <div className="progress-label">
           <span>Groups picked: {pickedCount} / {totalGroups}</span>
@@ -462,36 +638,27 @@ function WCEntryForm() {
         </div>
         <div className="progress-bar"><div className="progress-fill" style={{width:`${(pickedCount/totalGroups)*100}%`}}/></div>
       </div>
+
       <div className="form-section">
-        <div className="form-section-hdr"><span><span className="num">01 · </span>YOUR INFO</span></div>
-        <div className="form-group">
-          <label className="form-label">Your Name</label>
-          <input className="form-input" placeholder="First and last name" value={name} onChange={e=>setName(e.target.value)}/>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Email Address</label>
-          <input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e=>setEmail(e.target.value)}/>
-        </div>
-      </div>
-      <div className="form-section">
-        <div className="form-section-hdr"><span><span className="num">02 · </span>PICK YOUR 12 TEAMS</span><span style={{fontSize:13,fontFamily:"var(--B)",fontWeight:400,color:"var(--mut)"}}>1 team per group</span></div>
+        <div className="form-section-hdr"><span><span className="num">01 · </span>PICK YOUR 12 TEAMS</span><span style={{fontSize:13,fontFamily:"var(--B)",fontWeight:400,color:"#5fa89e"}}>1 team per group</span></div>
         {WC_GROUPS.map(g=>{
           const picked=picks[`group${g.group}`];
           return (
             <div className="form-group" key={g.group}>
               <div className="group-pick-hdr">
                 <div>
-                  <div className="group-pick-label" style={{color:g.multiplier===2?"var(--blu)":g.multiplier===3?"var(--red)":"var(--gold)"}}>
+                  <div className="group-pick-label" style={{color:g.multiplier===2?"#00c4b4":g.multiplier===3?"#5fa89e":"#00c4b4"}}>
                     Pool Group {g.group}
                     {g.multiplier>1&&<span style={{marginLeft:8,fontSize:12}}>{g.multiplier===2?<span className="m2x">2× DOUBLE</span>:<span className="m3x">3× TRIPLE</span>}</span>}
                   </div>
-                  {picked&&<div style={{fontSize:12,color:"var(--mut)",marginTop:2}}>Selected: <strong style={{color:"var(--txt)"}}>{picked}</strong></div>}
+                  {picked&&<div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>Selected: <strong style={{color:"#ffffff"}}>{picked}</strong></div>}
                 </div>
                 <div className={`pick-check ${picked?"done":""}`}>{picked?"✓":""}</div>
               </div>
               <div className="team-select-grid">
                 {g.teams.map(team=>(
-                  <button key={team} className={`team-btn ${picked===team?`sel-${getMult(g.multiplier)}`:""}`} onClick={()=>setPicks(prev=>({...prev,[`group${g.group}`]:team}))}>
+                  <button key={team} className={`team-btn ${picked===team?`sel-${getMult(g.multiplier)}`:""}`}
+                    onClick={()=>setPicks(prev=>({...prev,[`group${g.group}`]:team}))}>
                     {picked===team?"✓ ":""}{team}
                   </button>
                 ))}
@@ -500,24 +667,28 @@ function WCEntryForm() {
           );
         })}
       </div>
+
       <div className="form-section">
-        <div className="form-section-hdr"><span><span className="num">03 · </span>GOLDEN BOOT PICK</span></div>
+        <div className="form-section-hdr"><span><span className="num">02 · </span>GOLDEN BOOT PICK</span></div>
         <div className="form-group">
           <label className="form-label">Who will score the most goals in the tournament?</label>
-          <div style={{fontSize:12,color:"var(--mut)",marginBottom:10}}>$5 from each entry goes to whoever picks the correct Golden Boot winner. If multiple people pick correctly, the pot splits.</div>
+          <div style={{fontSize:12,color:"#5fa89e",marginBottom:10}}>$5 from each entry goes to whoever picks the correct Golden Boot winner. If multiple people pick correctly, the pot splits.</div>
           <select className="gb-select" value={goldenBoot} onChange={e=>setGoldenBoot(e.target.value)}>
             <option value="">— Select a player —</option>
             {GOLDEN_BOOT_PLAYERS.map(p=><option key={p} value={p}>{p}</option>)}
           </select>
         </div>
       </div>
+
       {error&&<div className="error-msg">⚠️ {error}</div>}
+
       <div className="form-section" style={{padding:20}}>
-        <div style={{fontSize:13,color:"var(--mut)",marginBottom:16,lineHeight:1.6}}>
-          By submitting you agree to pay the <strong style={{color:"var(--txt)"}}>$35 entry fee</strong>. Payment can be sent through Zelle to <strong style={{color:"var(--gold)"}}>scott.wbeverly@gmail.com</strong> or contact that email address with any questions. Once the tournament starts, pool entries will be announced on this site, along with an email to the group. Thanks for joining and good luck!
-        </div>
         <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
-          {submitting?"SUBMITTING...":canSubmit?"SUBMIT MY PICKS →":`COMPLETE ALL FIELDS ${!allPicked?`(${totalGroups-pickedCount} groups left)`:""}`}
+          {submitting
+            ? "SAVING..."
+            : isEditing
+              ? canSubmit ? "SAVE CHANGES →" : `COMPLETE ALL FIELDS ${!allPicked?`(${totalGroups-pickedCount} left)`:""}`
+              : canSubmit ? "SUBMIT MY PICKS →" : `COMPLETE ALL FIELDS ${!allPicked?`(${totalGroups-pickedCount} left)`:""}` }
         </button>
       </div>
     </div>
