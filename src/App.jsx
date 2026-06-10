@@ -4,7 +4,7 @@ const JUNE_CSV_URL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx
 const MAY_CSV_URL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=2102778375&single=true&output=csv";
 const APRIL_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=172900262&single=true&output=csv";
 const SUBMIT_URL   = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
-const DEADLINE     = new Date("2026-06-11T15:00:00");
+const DEADLINE     = new Date("2026-06-11T14:00:00");
 
 // ── GOLDEN BOOT PLAYERS (from RotoWire odds, ordered by favorites) ─────────────
 const GOLDEN_BOOT_PLAYERS = [
@@ -534,7 +534,7 @@ function WCEntryForm() {
       <div className="deadline-banner">
         <div className="deadline-banner-icon">⏰</div>
         <div>
-          <div className="deadline-banner-title">PICKS DUE JUNE 11 · 2:00 PM</div>
+          <div className="deadline-banner-title">PICKS DUE JUNE 11 · 3:00 PM</div>
           <div className="deadline-banner-sub">Entry fee: $35 · 12 team picks + Golden Boot · Max 2 entries per person</div>
         </div>
       </div>
@@ -710,7 +710,7 @@ function WorldCup() {
         <div className="pmeta">
           <div className="pill">Entry: <strong>$35</strong></div>
           <div className="pill">12 teams + Golden Boot</div>
-          <div className="dbadge">⏰ Due: Jun 11 · 2PM</div>
+          <div className="dbadge">⏰ Due: Jun 11 · 3PM</div>
         </div>
       </div>
       <div className="stabs">
@@ -773,7 +773,7 @@ function WorldCup() {
                 "Groups 6, 7, 8, and 9 earn DOUBLE points on all scoring events throughout the entire tournament.",
                 "Groups 10, 11, and 12 earn TRIPLE points on all scoring events throughout the entire tournament.",
                 "Also select one player you think will win the Golden Boot (most goals). This is the side pool.",
-                "Picks are due before 2:00 PM on June 11, 2026. Entry fee is $35.",
+                "Picks are due before 3:00 PM on June 11, 2026. Entry fee is $35.",
                 "Payouts: $30 of entry goes to top 2-3 finishers; $5 goes to the Golden Boot side pool winner(s).",
                 "Submit picks via this site. Payment instructions will follow via email.",
               ].map((rule,i)=><div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>)}
@@ -1010,7 +1010,7 @@ function Dashboard({setTab, allData, updatedAt, tournamentStarted}) {
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Format</span><span className="dsv">12 picks + Golden Boot</span></div>
             <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$35</span></div>
-            <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Jun 11, 2026 · 2:00 PM</span></div>
+            <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Jun 11, 2026 · 3:00 PM</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{tournamentStarted?"🔴 Tournament Live":"✅ Submissions Open"}</span></div>
           </div>
           <button className="dcta">{tournamentStarted?"VIEW POOL →":"SUBMIT YOUR PICKS →"}</button>
