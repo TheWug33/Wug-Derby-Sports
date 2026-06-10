@@ -1162,7 +1162,7 @@ function WCTournament() {
       const winner = homeWin ? home : awayWin ? away : null;
       if (!winner) continue;
       if (!stats[winner]) stats[winner] = { goals:0, wins:0, draws:0 };
-      if (round.includes("Round of 32") || round.includes("Round of 16") && round.includes("32")) {
+      if (round.includes("Round of 32") || (round.includes("Round of 16") && round.includes("32"))) {
         stats[winner].r32win = true;
       }
       if (round.includes("Quarter-final") || round.includes("Quarterfinal")) {
@@ -1205,6 +1205,7 @@ function WCTournament() {
     setLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadAll(); }, []);
 
   // Score every entry
@@ -1220,15 +1221,6 @@ function WCTournament() {
   const upcomingFixtures = fixtures.filter(f => f.fixture?.status?.short === "NS")
     .sort((a,b) => new Date(a.fixture.date) - new Date(b.fixture.date))
     .slice(0, 8);
-
-  const fmtTime = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  };
-  const fmtDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString([],{month:"short",day:"numeric"});
-  };
 
   return (
     <div>
