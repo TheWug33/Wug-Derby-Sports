@@ -13,6 +13,7 @@ const GOLDEN_BOOT_PLAYERS = [
   "Lionel Messi",
   "Erling Haaland",
   "Lamine Yamal",
+  "Michael Orise",
   "Mikel Oyarzabal",
   "Cristiano Ronaldo",
   "Vinicius Junior",
