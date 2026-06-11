@@ -6,6 +6,7 @@ const APRIL_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4u
 const SUBS_CSV  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=972756262&single=true&output=csv";
 const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
 const DEADLINE  = new Date("2026-06-11T15:00:00");
+const API_KEY   = process.env.REACT_APP_FOOTBALL_API_KEY;
 
 const WC_GROUPS = [
   {group:1,mult:1,teams:["France","Spain","England","Brazil"]},
