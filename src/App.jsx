@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 const JUNE_CSV_URL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=966793280&single=true&output=csv";
 const MAY_CSV_URL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=2102778375&single=true&output=csv";
@@ -985,8 +985,8 @@ function WorldCup() {
                       const isSelected = selectedEntry?.email===e.email&&selectedEntry?.entryNumber===e.entryNumber;
                       const maxPts = scoredEntries[0]?.total||1;
                       return (
-                        <>
-                          <tr key={e.email+(e.entryNumber||1)} style={{cursor:"pointer",background:isSelected?"rgba(0,196,180,.08)":""}}
+                        <React.Fragment key={e.email+(e.entryNumber||1)}>
+                          <tr style={{cursor:"pointer",background:isSelected?"rgba(0,196,180,.08)":""}}
                             onClick={()=>setSelectedEntry(isSelected?null:e)}>
                             <td><RB rank={i+1}/></td>
                             <td>
@@ -997,7 +997,7 @@ function WorldCup() {
                             <td><div className="lbar"><div className="lfill" style={{width:`${Math.round((e.total/maxPts)*100)}%`,background:i===0?"#00c4b4":i===1?"#b0b8cc":i===2?"#cd7f32":"#00c4b4"}}/></div></td>
                           </tr>
                           {isSelected&&(
-                            <tr key={e.email+(e.entryNumber||1)+"d"}>
+                            <tr>
                               <td colSpan={4} style={{padding:0,background:"#0a1a1a"}}>
                                 <div style={{padding:16}}>
                                   <div style={{fontFamily:"var(--F)",fontSize:14,letterSpacing:1,color:"#00c4b4",marginBottom:10}}>{e.name}'s PICKS — {e.total} PTS</div>
@@ -1026,7 +1026,7 @@ function WorldCup() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -1526,6 +1526,7 @@ export default function App() {
 
   const tournamentStarted = new Date() >= DEADLINE;
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const fetchAll = async () => {
       try {
