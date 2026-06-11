@@ -723,6 +723,7 @@ function WorldCup() {
       headers: { "x-apisports-key": API_KEY }
     }).then(r => r.json());
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadTournamentData = async () => {
     setApiLoading(true);
     try {
@@ -734,30 +735,43 @@ function WorldCup() {
       const allFixtures = fixtRes.response || [];
       const allStandings = standRes.response?.[0]?.league?.standings || [];
       const allSubs = subRes.submissions || [];
-      const stats = buildTeamStats(allFixtures, allStandings);
       setFixtures(allFixtures);
       setStandings(allStandings);
       setSubmissions(allSubs);
-      setTeamStats(stats);
+      setTeamStats(buildTeamStats(allFixtures, allStandings));
       setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
     } catch(e) { console.error(e); }
     setApiLoading(false);
   };
 
-  // Load submissions only (pre-tournament, for Golden Boot tally display)
-  const loadSubmissions = async () => {
-    try {
-      const res = await fetch(SUBMIT_URL).then(r => r.json());
-      setSubmissions(res.submissions || []);
-    } catch(e) { console.error(e); }
-  };
-
   useEffect(() => {
-    if (tournamentStarted) {
-      loadTournamentData();
-    } else {
-      loadSubmissions();
-    }
+    const init = async () => {
+      if (tournamentStarted) {
+        setApiLoading(true);
+        try {
+          const [fixtRes, standRes, subRes] = await Promise.all([
+            fetch(`https://v3.football.api-sports.io/fixtures?league=1&season=2026`, { headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+            fetch(`https://v3.football.api-sports.io/standings?league=1&season=2026`, { headers:{"x-apisports-key":API_KEY}}).then(r=>r.json()),
+            fetch(SUBMIT_URL).then(r=>r.json()),
+          ]);
+          const allFixtures = fixtRes.response || [];
+          const allStandings = standRes.response?.[0]?.league?.standings || [];
+          const allSubs = subRes.submissions || [];
+          setFixtures(allFixtures);
+          setStandings(allStandings);
+          setSubmissions(allSubs);
+          setTeamStats(buildTeamStats(allFixtures, allStandings));
+          setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+        } catch(e) { console.error(e); }
+        setApiLoading(false);
+      } else {
+        try {
+          const res = await fetch(SUBMIT_URL).then(r=>r.json());
+          setSubmissions(res.submissions || []);
+        } catch(e) { console.error(e); }
+      }
+    };
+    init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
