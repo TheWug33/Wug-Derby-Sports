@@ -697,36 +697,197 @@ function WCEntryForm() {
   );
 }
 
-// ── WORLD CUP FULL PAGE ───────────────────────────────────────────────────────
+// ── WORLD CUP UNIFIED PAGE ────────────────────────────────────────────────────
 function WorldCup() {
-  const [sec, setSec] = useState("enter");
+  const tournamentStarted = new Date() >= DEADLINE;
+  const isOpen = new Date() < DEADLINE;
+
+  // Pre-tournament default: submit entry. Post-tournament default: leaderboard
+  const [sec, setSec] = useState(tournamentStarted ? "leaderboard" : "enter");
+
   const ml = m=>m===2?<span className="m2x">2× DOUBLE</span>:m===3?<span className="m3x">3× TRIPLE</span>:<span className="m1x">1×</span>;
   const gc = m=>m===2?"g2x":m===3?"g3x":"g1x";
+
+  // Tournament API state
+  const API_KEY = process.env.REACT_APP_FOOTBALL_API_KEY;
+  const [fixtures, setFixtures] = useState([]);
+  const [standings, setStandings] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [teamStats, setTeamStats] = useState({});
+  const [apiLoading, setApiLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState("");
+  const [selectedEntry, setSelectedEntry] = useState(null);
+
+  const apiFetch = (endpoint) =>
+    fetch(`https://v3.football.api-sports.io/${endpoint}`, {
+      headers: { "x-apisports-key": API_KEY }
+    }).then(r => r.json());
+
+  const loadTournamentData = async () => {
+    setApiLoading(true);
+    try {
+      const [fixtRes, standRes, subRes] = await Promise.all([
+        apiFetch(`fixtures?league=1&season=2026`),
+        apiFetch(`standings?league=1&season=2026`),
+        fetch(SUBMIT_URL).then(r => r.json()),
+      ]);
+      const allFixtures = fixtRes.response || [];
+      const allStandings = standRes.response?.[0]?.league?.standings || [];
+      const allSubs = subRes.submissions || [];
+      const stats = buildTeamStats(allFixtures, allStandings);
+      setFixtures(allFixtures);
+      setStandings(allStandings);
+      setSubmissions(allSubs);
+      setTeamStats(stats);
+      setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+    } catch(e) { console.error(e); }
+    setApiLoading(false);
+  };
+
+  // Load submissions only (pre-tournament, for Golden Boot tally display)
+  const loadSubmissions = async () => {
+    try {
+      const res = await fetch(SUBMIT_URL).then(r => r.json());
+      setSubmissions(res.submissions || []);
+    } catch(e) { console.error(e); }
+  };
+
+  useEffect(() => {
+    if (tournamentStarted) {
+      loadTournamentData();
+    } else {
+      loadSubmissions();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Score every entry
+  const scoredEntries = submissions.map(entry => {
+    const { total, breakdown } = calcEntryScore(entry, teamStats);
+    return { ...entry, total, breakdown };
+  }).sort((a,b) => b.total - a.total);
+
+  const todayFixtures = fixtures.filter(f => f.fixture?.date?.startsWith(new Date().toISOString().split("T")[0]));
+  const liveFixtures = fixtures.filter(f => ["1H","HT","2H","ET","BT","P"].includes(f.fixture?.status?.short));
+  const upcomingFixtures = fixtures.filter(f => f.fixture?.status?.short === "NS")
+    .sort((a,b) => new Date(a.fixture.date) - new Date(b.fixture.date))
+    .slice(0, 8);
+
+  // Build nav tabs based on tournament state
+  const preTabs = [
+    {id:"enter",   label:"✏️ Submit Entry"},
+    {id:"entries", label:"📋 All Entries"},
+    {id:"groups",  label:"🌍 Pool Groups"},
+    {id:"scoring", label:"📊 Scoring"},
+    {id:"rules",   label:"📖 Rules"},
+  ];
+  const liveTabs = [
+    {id:"leaderboard", label:"🏆 Leaderboard"},
+    {id:"matches",     label:"⚽ Matches"},
+    {id:"groupstage",  label:"🌍 Group Stage"},
+    {id:"golden",      label:"🥇 Golden Boot"},
+    {id:"entries",     label:"📋 All Entries"},
+    {id:"rules",       label:"📖 Rules"},
+  ];
+  const tabs = tournamentStarted ? liveTabs : preTabs;
+
   return (
     <div>
       <div className="phdr">
         <div>
           <div className="ptitle">⚽ WORLD CUP POOL 2026</div>
-          <div style={{fontSize:14,color:"var(--mut)",marginTop:4}}>Pick 1 team per Pool Group · 12 teams total</div>
+          <div style={{fontSize:14,color:"#5fa89e",marginTop:4}}>
+            {tournamentStarted
+              ? `${submissions.length} entries · Leader: ${scoredEntries[0]?.name || "—"} (${scoredEntries[0]?.total || 0} pts)`
+              : "Pick 1 team per Pool Group · 12 teams total · Golden Boot side pool"}
+          </div>
         </div>
         <div className="pmeta">
           <div className="pill">Entry: <strong>$35</strong></div>
-          <div className="pill">12 teams + Golden Boot</div>
-          <div className="dbadge">⏰ Due: Jun 11 · 3PM</div>
+          <div className="pill">Entries: <strong>{submissions.length}</strong></div>
+          {tournamentStarted ? (
+            <>
+              <div className="pill">Updated: <strong>{lastRefresh||"—"}</strong></div>
+              <button onClick={loadTournamentData} style={{background:"#00c4b4",border:"none",borderRadius:4,color:"#000",padding:"6px 14px",fontFamily:"var(--F)",fontSize:14,letterSpacing:1,cursor:"pointer"}}>
+                {apiLoading?"...":"↻ REFRESH"}
+              </button>
+            </>
+          ) : (
+            <div className="dbadge">⏰ Due: Jun 11 · 3PM</div>
+          )}
         </div>
       </div>
+
       <div className="stabs">
-        {[{id:"enter",label:"✏️ Submit Entry"},{id:"groups",label:"🌍 Pool Groups"},{id:"scoring",label:"📊 Scoring"},{id:"rules",label:"📖 Rules"}].map(s=>(
+        {tabs.map(s=>(
           <button key={s.id} className={`stab ${sec===s.id?"on":""}`} onClick={()=>setSec(s.id)}>{s.label}</button>
         ))}
       </div>
-      {sec==="enter"&&<WCEntryForm/>}
-      {sec==="groups"&&(
+
+      {/* ── PRE-TOURNAMENT TABS ── */}
+      {sec==="enter" && <WCEntryForm/>}
+
+      {/* ── ALL ENTRIES (shared pre + post) ── */}
+      {sec==="entries" && (
+        <div>
+          {submissions.length === 0 ? (
+            <div className="card"><div style={{padding:40,textAlign:"center",color:"#5fa89e"}}>
+              <div style={{fontSize:40,marginBottom:12}}>📋</div>
+              <div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>NO ENTRIES YET</div>
+            </div></div>
+          ) : (
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16}}>
+              {(tournamentStarted ? scoredEntries : submissions).map((entry,i)=>(
+                <div key={entry.email+(entry.entryNumber||1)} style={{background:"#000",border:"2px solid #ffffff",borderRadius:8,overflow:"hidden"}}>
+                  <div style={{padding:"12px 16px",background:"#0a1a1a",borderBottom:"2px solid #ffffff",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div>
+                      <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"#ffffff"}}>{entry.name}</div>
+                      {(entry.entryNumber||1)>1 && <div style={{fontSize:11,color:"#5fa89e"}}>Entry {entry.entryNumber}</div>}
+                    </div>
+                    {tournamentStarted && (
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontFamily:"var(--F)",fontSize:24,color:"#00c4b4"}}>{entry.total}</div>
+                        <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1}}>POINTS</div>
+                      </div>
+                    )}
+                    {!tournamentStarted && (
+                      <div style={{fontFamily:"var(--F)",fontSize:14,color:"#5fa89e",letterSpacing:1}}>#{i+1}</div>
+                    )}
+                  </div>
+                  <div style={{padding:"8px 0"}}>
+                    {WC_GROUPS.map(g=>(
+                      <div key={g.group} style={{display:"flex",justifyContent:"space-between",padding:"5px 16px",borderBottom:"1px solid #0f2424",fontSize:13}}>
+                        <span style={{color:"#5fa89e"}}>
+                          Group {g.group}
+                          {g.multiplier>1 && <span style={{marginLeft:4,fontSize:10,color:g.multiplier===2?"#00c4b4":"#ffffff"}}>{g.multiplier}×</span>}
+                        </span>
+                        <span style={{fontWeight:600,color:"#ffffff"}}>{entry[`group${g.group}`]||"—"}</span>
+                        {tournamentStarted && entry.breakdown && (
+                          <span style={{fontFamily:"var(--F)",fontSize:14,color:"#00c4b4",minWidth:32,textAlign:"right"}}>
+                            {entry.breakdown[`group${g.group}`]?.scored||0}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"8px 16px",fontSize:13,background:"rgba(0,196,180,.05)"}}>
+                      <span style={{color:"#5fa89e"}}>🥇 Golden Boot</span>
+                      <span style={{fontWeight:600,color:"#ffffff"}}>{entry.goldenBoot||"—"}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── POOL GROUPS (shared) ── */}
+      {sec==="groups" && (
         <div>
           <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m1x">1×</span> Groups 1–5</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m2x">2× DOUBLE</span> Groups 6–9</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--mut)"}}><span className="m3x">3× TRIPLE</span> Groups 10–12</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#5fa89e"}}><span className="m1x">1×</span> Groups 1–5</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#5fa89e"}}><span className="m2x">2× DOUBLE</span> Groups 6–9</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#5fa89e"}}><span className="m3x">3× TRIPLE</span> Groups 10–12</div>
           </div>
           <div className="ggrid">
             {WC_GROUPS.map(g=>(
@@ -738,7 +899,9 @@ function WorldCup() {
           </div>
         </div>
       )}
-      {sec==="scoring"&&(
+
+      {/* ── SCORING ── */}
+      {sec==="scoring" && (
         <div className="sgrid">
           <div className="card">
             <div className="chdr">📊 Base Scoring</div>
@@ -765,7 +928,9 @@ function WorldCup() {
           </div>
         </div>
       )}
-      {sec==="rules"&&(
+
+      {/* ── RULES (shared) ── */}
+      {sec==="rules" && (
         <div className="card">
           <div className="chdr">📖 Pool Rules</div>
           <div style={{padding:20}}>
@@ -775,11 +940,199 @@ function WorldCup() {
                 "Groups 6, 7, 8, and 9 earn DOUBLE points on all scoring events throughout the entire tournament.",
                 "Groups 10, 11, and 12 earn TRIPLE points on all scoring events throughout the entire tournament.",
                 "Also select one player you think will win the Golden Boot (most goals). This is the side pool.",
-                "Picks are due before 3:00 PM on June 11, 2026. Entry fee is $35.",
+                "Picks were due before 3:00 PM on June 11, 2026. Entry fee is $35.",
                 "Payouts: $30 of entry goes to top 2-3 finishers; $5 goes to the Golden Boot side pool winner(s).",
-                "Submit picks via this site. Payment instructions will follow via email.",
+                "Pool entries have been announced via email to the group.",
               ].map((rule,i)=><div className="ri" key={i}><span className="rn">{i+1}</span><span>{rule}</span></div>)}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── LIVE TOURNAMENT TABS ── */}
+      {sec==="leaderboard" && (
+        <div>
+          {apiLoading ? (
+            <div className="loading" style={{height:200}}><div className="spinner"/></div>
+          ) : scoredEntries.length === 0 ? (
+            <div className="card"><div style={{padding:40,textAlign:"center",color:"#5fa89e"}}>
+              <div style={{fontSize:48,marginBottom:12}}>🏆</div>
+              <div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2,marginBottom:8}}>STANDINGS LOADING</div>
+              <div style={{fontSize:14}}>Scores will appear here once data is loaded. Hit Refresh above!</div>
+            </div></div>
+          ) : (
+            <>
+              <div className="podium">
+                {scoredEntries.slice(0,3).map((e,i)=>(
+                  <div key={e.email+(e.entryNumber||1)} className={`pod p${i+1}`} style={{cursor:"pointer"}}
+                    onClick={()=>setSelectedEntry(selectedEntry?.email===e.email&&selectedEntry?.entryNumber===e.entryNumber?null:e)}>
+                    <div className="pos">{["🥇","🥈","🥉"][i]}</div>
+                    <div className="pteam">{e.name}</div>
+                    {(e.entryNumber||1)>1&&<div style={{fontSize:11,color:"#5fa89e"}}>Entry {e.entryNumber}</div>}
+                    <div className="phr">{e.total}</div>
+                    <div className="plbl">POINTS</div>
+                  </div>
+                ))}
+              </div>
+              <div className="card">
+                <div className="chdr">🏆 Pool Leaderboard
+                  <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"#5fa89e",fontWeight:400}}>Click any entry to expand</span>
+                </div>
+                <table>
+                  <thead><tr><th style={{width:48}}>Rank</th><th>Participant</th><th className="r">Points</th><th style={{width:160}}></th></tr></thead>
+                  <tbody>
+                    {scoredEntries.map((e,i)=>{
+                      const isSelected = selectedEntry?.email===e.email&&selectedEntry?.entryNumber===e.entryNumber;
+                      const maxPts = scoredEntries[0]?.total||1;
+                      return (
+                        <>
+                          <tr key={e.email+(e.entryNumber||1)} style={{cursor:"pointer",background:isSelected?"rgba(0,196,180,.08)":""}}
+                            onClick={()=>setSelectedEntry(isSelected?null:e)}>
+                            <td><RB rank={i+1}/></td>
+                            <td>
+                              <span style={{fontWeight:600}}>{e.name}</span>
+                              {(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}
+                            </td>
+                            <td className="r"><span className="hn">{e.total}</span></td>
+                            <td><div className="lbar"><div className="lfill" style={{width:`${Math.round((e.total/maxPts)*100)}%`,background:i===0?"#00c4b4":i===1?"#b0b8cc":i===2?"#cd7f32":"#00c4b4"}}/></div></td>
+                          </tr>
+                          {isSelected&&(
+                            <tr key={e.email+(e.entryNumber||1)+"d"}>
+                              <td colSpan={4} style={{padding:0,background:"#0a1a1a"}}>
+                                <div style={{padding:16}}>
+                                  <div style={{fontFamily:"var(--F)",fontSize:14,letterSpacing:1,color:"#00c4b4",marginBottom:10}}>{e.name}'s PICKS — {e.total} PTS</div>
+                                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:8}}>
+                                    {WC_GROUPS.map(g=>{
+                                      const bd=e.breakdown[`group${g.group}`];
+                                      return (
+                                        <div key={g.group} style={{background:"#000",border:"1px solid #1a3a3a",borderRadius:6,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                                          <div>
+                                            <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1,textTransform:"uppercase"}}>Group {g.group}{g.multiplier>1?` · ${g.multiplier}×`:""}</div>
+                                            <div style={{fontSize:13,fontWeight:600,color:"#ffffff",marginTop:2}}>{bd?.team||"—"}</div>
+                                          </div>
+                                          <div style={{textAlign:"right"}}>
+                                            <div style={{fontFamily:"var(--F)",fontSize:20,color:"#00c4b4"}}>{bd?.scored||0}</div>
+                                            <div style={{fontSize:10,color:"#5fa89e"}}>{bd?.pts||0}×{bd?.mult||1}</div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <div style={{marginTop:10,padding:"8px 12px",background:"#000",border:"1px solid #00c4b4",borderRadius:6,display:"flex",justifyContent:"space-between"}}>
+                                    <span style={{color:"#5fa89e",fontSize:13}}>🥇 Golden Boot</span>
+                                    <span style={{fontWeight:600,color:"#ffffff"}}>{e.goldenBoot||"—"}</span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {sec==="matches" && (
+        <div>
+          {liveFixtures.length>0&&(
+            <div style={{marginBottom:20}}>
+              <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:2,color:"#e84545",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:"#e84545",display:"inline-block",animation:"pulse 1s infinite"}}/>LIVE NOW
+              </div>
+              {liveFixtures.map(f=><MatchCard key={f.fixture.id} f={f} submissions={submissions}/>)}
+            </div>
+          )}
+          {todayFixtures.length>0&&(
+            <div style={{marginBottom:20}}>
+              <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:2,color:"#00c4b4",marginBottom:12}}>TODAY'S MATCHES</div>
+              {todayFixtures.map(f=><MatchCard key={f.fixture.id} f={f} submissions={submissions}/>)}
+            </div>
+          )}
+          <div>
+            <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:2,color:"#ffffff",marginBottom:12}}>UPCOMING</div>
+            {upcomingFixtures.length===0
+              ? <div className="card"><div style={{padding:24,textAlign:"center",color:"#5fa89e"}}>No upcoming fixtures yet.</div></div>
+              : upcomingFixtures.map(f=><MatchCard key={f.fixture.id} f={f} submissions={submissions}/>)
+            }
+          </div>
+        </div>
+      )}
+
+      {sec==="groupstage" && (
+        <div>
+          {standings.length===0
+            ? <div className="card"><div style={{padding:40,textAlign:"center",color:"#5fa89e"}}>
+                <div style={{fontSize:48,marginBottom:12}}>🌍</div>
+                <div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>GROUP STANDINGS</div>
+                <div style={{marginTop:8}}>Will appear once the group stage begins.</div>
+              </div></div>
+            : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
+                {standings.map((group,gi)=>(
+                  <div key={gi} className="card">
+                    <div className="chdr">Group {group[0]?.group||String.fromCharCode(65+gi)}</div>
+                    <table>
+                      <thead><tr><th>Team</th><th className="r">P</th><th className="r">W</th><th className="r">D</th><th className="r">L</th><th className="r">GF</th><th className="r">Pts</th></tr></thead>
+                      <tbody>
+                        {group.map((row,ri)=>{
+                          const name=TEAM_NAME_MAP[row.team?.name]||row.team?.name;
+                          return (
+                            <tr key={ri} style={{background:ri<2?"rgba(0,196,180,.06)":""}}>
+                              <td><div style={{display:"flex",alignItems:"center",gap:8}}>
+                                {row.team?.logo&&<img src={row.team.logo} style={{width:20,height:20,objectFit:"contain"}} alt=""/>}
+                                <span style={{fontSize:13,fontWeight:ri<2?600:400}}>{name}</span>
+                              </div></td>
+                              <td className="r" style={{fontSize:12}}>{row.all?.played||0}</td>
+                              <td className="r" style={{fontSize:12}}>{row.all?.win||0}</td>
+                              <td className="r" style={{fontSize:12}}>{row.all?.draw||0}</td>
+                              <td className="r" style={{fontSize:12}}>{row.all?.lose||0}</td>
+                              <td className="r" style={{fontSize:12}}>{row.all?.goals?.for||0}</td>
+                              <td className="r"><span style={{fontFamily:"var(--F)",fontSize:16,color:"#00c4b4"}}>{row.points||0}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+          }
+        </div>
+      )}
+
+      {sec==="golden" && (
+        <div className="card">
+          <div className="chdr">🥇 Golden Boot Race</div>
+          <div style={{padding:20}}>
+            <div style={{fontSize:13,color:"#5fa89e",marginBottom:20,lineHeight:1.6}}>
+              $5 from each entry goes to whoever picks the tournament's top scorer.
+              {submissions.length>0&&<> <strong style={{color:"#ffffff"}}>{submissions.length} entries · ${submissions.length*5} pot.</strong></>}
+            </div>
+            {(()=>{
+              const tally={};
+              for(const s of submissions){ const p=s.goldenBoot||"Unknown"; if(!tally[p])tally[p]=[]; tally[p].push(s.name); }
+              const sorted=Object.entries(tally).sort((a,b)=>b[1].length-a[1].length);
+              const maxPicks=sorted[0]?.[1]?.length||1;
+              return sorted.map(([player,pickers],i)=>(
+                <div key={player} style={{marginBottom:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <div>
+                      <span style={{fontWeight:600,color:"#ffffff"}}>{player}</span>
+                      <span style={{fontSize:12,color:"#5fa89e",marginLeft:8}}>{pickers.length} pick{pickers.length!==1?"s":""}</span>
+                    </div>
+                    <span style={{fontFamily:"var(--F)",fontSize:16,color:"#00c4b4"}}>{pickers.length}</span>
+                  </div>
+                  <div className="lbar" style={{height:6,marginBottom:4}}>
+                    <div className="lfill" style={{width:`${Math.round((pickers.length/maxPicks)*100)}%`,background:i===0?"#00c4b4":"#1a3a3a"}}/>
+                  </div>
+                  <div style={{fontSize:11,color:"#5fa89e"}}>{pickers.join(", ")}</div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -1104,194 +1457,125 @@ function calcEntryScore(entry, teamStats) {
   return { total, breakdown };
 }
 
-// ── WC TOURNAMENT PAGE ────────────────────────────────────────────────────────
-function WCTournament() {
-  const API_KEY = process.env.REACT_APP_FOOTBALL_API_KEY;
-  const LEAGUE = 1;
-  const SEASON = 2026;
+// ── MATCH CARD ────────────────────────────────────────────────────────────────
+function MatchCard({ f, submissions }) {
+  const homeRaw = f.teams?.home?.name;
+  const awayRaw = f.teams?.away?.name;
+  const home = TEAM_NAME_MAP[homeRaw] || homeRaw;
+  const away = TEAM_NAME_MAP[awayRaw] || awayRaw;
+  const homeGoals = f.goals?.home ?? "—";
+  const awayGoals = f.goals?.away ?? "—";
+  const status = f.fixture?.status?.short;
+  const elapsed = f.fixture?.status?.elapsed;
+  const isLive = ["1H","HT","2H","ET","BT","P"].includes(status);
+  const isDone = ["FT","AET","PEN"].includes(status);
+  const isNS = status === "NS";
+  const round = f.league?.round || "";
 
-  const [sec, setSec] = useState("leaderboard");
-  const [fixtures, setFixtures] = useState([]);
-  const [standings, setStandings] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
-  const [teamStats, setTeamStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState("");
-  const [selectedEntry, setSelectedEntry] = useState(null);
-
-  const apiFetch = (endpoint) =>
-    fetch(`https://v3.football.api-sports.io/${endpoint}`, {
-      headers: { "x-apisports-key": API_KEY }
-    }).then(r => r.json());
-
-  const buildTeamStats = (fixtureData, standingsData) => {
-    const stats = {};
-    // Process group stage standings
-    for (const group of standingsData) {
-      for (const teamRow of group) {
-        const rawName = teamRow.team?.name || "";
-        const name = TEAM_NAME_MAP[rawName] || rawName;
-        const rank = teamRow.rank;
-        if (!stats[name]) stats[name] = { goals: 0, wins: 0, draws: 0 };
-        stats[name].goals = (stats[name].goals || 0) + (teamRow.all?.goals?.for || 0);
-        stats[name].wins = teamRow.all?.win || 0;
-        stats[name].draws = teamRow.all?.draw || 0;
-        if (rank === 1) stats[name].groupWin = true;
-        else if (rank === 2) stats[name].group2nd = true;
-        else if (rank === 3) stats[name].group3rd = true;
-      }
-    }
-    // Process knockout results from fixtures
-    for (const f of fixtureData) {
-      const round = f.league?.round || "";
-      const status = f.fixture?.status?.short;
-      if (!["FT","AET","PEN"].includes(status)) continue;
-      const homeRaw = f.teams?.home?.name;
-      const awayRaw = f.teams?.away?.name;
-      const homeWin = f.teams?.home?.winner;
-      const awayWin = f.teams?.away?.winner;
-      const home = TEAM_NAME_MAP[homeRaw] || homeRaw;
-      const away = TEAM_NAME_MAP[awayRaw] || awayRaw;
-      const winner = homeWin ? home : awayWin ? away : null;
-      if (!winner) continue;
-      if (!stats[winner]) stats[winner] = { goals:0, wins:0, draws:0 };
-      if (round.includes("Round of 32") || (round.includes("Round of 16") && round.includes("32"))) {
-        stats[winner].r32win = true;
-      }
-      if (round.includes("Quarter-final") || round.includes("Quarterfinal")) {
-        stats[winner].qf = true;
-      }
-      if (round.includes("Semi-final") || round.includes("Semifinal")) {
-        stats[winner].sf = true;
-      }
-      if (round.includes("Final") && !round.includes("Semi") && !round.includes("3rd")) {
-        stats[winner].final = true;
-        stats[winner].champion = true;
-        const loser = winner === home ? away : home;
-        if (!stats[loser]) stats[loser] = { goals:0, wins:0, draws:0 };
-        stats[loser].final = true;
-      }
-    }
-    return stats;
-  };
-
-  const loadAll = async () => {
-    setLoading(true);
-    try {
-      const [fixtRes, standRes, subRes] = await Promise.all([
-        apiFetch(`fixtures?league=${LEAGUE}&season=${SEASON}`),
-        apiFetch(`standings?league=${LEAGUE}&season=${SEASON}`),
-        fetch(SUBMIT_URL).then(r => r.json()),
-      ]);
-      const allFixtures = fixtRes.response || [];
-      const allStandings = standRes.response?.[0]?.league?.standings || [];
-      const allSubs = subRes.submissions || [];
-      const stats = buildTeamStats(allFixtures, allStandings);
-      setFixtures(allFixtures);
-      setStandings(allStandings);
-      setSubmissions(allSubs);
-      setTeamStats(stats);
-      setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
-  };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadAll(); }, []);
-
-  // Score every entry
-  const scoredEntries = submissions.map(entry => {
-    const { total, breakdown } = calcEntryScore(entry, teamStats);
-    return { ...entry, total, breakdown };
-  }).sort((a,b) => b.total - a.total);
-
-  // Today's matches
-  const today = new Date().toISOString().split("T")[0];
-  const todayFixtures = fixtures.filter(f => f.fixture?.date?.startsWith(today));
-  const liveFixtures = fixtures.filter(f => ["1H","HT","2H","ET","BT","P"].includes(f.fixture?.status?.short));
-  const upcomingFixtures = fixtures.filter(f => f.fixture?.status?.short === "NS")
-    .sort((a,b) => new Date(a.fixture.date) - new Date(b.fixture.date))
-    .slice(0, 8);
+  const homePickers = submissions.filter(s =>
+    Object.values(s).includes(home)
+  ).map(s=>s.name);
+  const awayPickers = submissions.filter(s =>
+    Object.values(s).includes(away)
+  ).map(s=>s.name);
 
   return (
-    <div>
-      <div className="phdr">
-        <div>
-          <div className="ptitle">⚽ WORLD CUP 2026</div>
-          <div style={{fontSize:14,color:"#5fa89e",marginTop:4}}>
-            Live tournament · {submissions.length} entries · {scoredEntries.length > 0 ? `Leader: ${scoredEntries[0]?.name} (${scoredEntries[0]?.total} pts)` : "Awaiting data..."}
+    <div style={{background:"#000",border:`2px solid ${isLive?"#e84545":isDone?"#1a3a3a":"#ffffff"}`,borderRadius:8,padding:16,marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <span style={{fontSize:11,color:"#5fa89e",letterSpacing:1,textTransform:"uppercase"}}>{round}</span>
+        <span style={{fontSize:12,fontWeight:700,color:isLive?"#e84545":isDone?"#5fa89e":"#ffffff"}}>
+          {isLive ? `🔴 ${elapsed}'` : isDone ? "FT" : isNS ? new Date(f.fixture.date).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}) : status}
+        </span>
+      </div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+        <div style={{flex:1,textAlign:"left"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {f.teams?.home?.logo && <img src={f.teams.home.logo} style={{width:28,height:28,objectFit:"contain"}} alt=""/>}
+            <span style={{fontWeight:700,fontSize:15,color:"#ffffff"}}>{home}</span>
           </div>
+          {homePickers.length > 0 && <div style={{fontSize:11,color:"#00c4b4",marginTop:4}}>🎯 {homePickers.join(", ")}</div>}
         </div>
-        <div className="pmeta">
-          <div className="pill">Entries: <strong>{submissions.length}</strong></div>
-          <div className="pill">Updated: <strong>{lastRefresh||"—"}</strong></div>
-          <button onClick={loadAll} style={{background:"#00c4b4",border:"none",borderRadius:4,color:"#000",padding:"6px 14px",fontFamily:"var(--F)",fontSize:14,letterSpacing:1,cursor:"pointer"}}>↻ REFRESH</button>
-        </div>
-      </div>
-
-      <div className="stabs">
-        {[
-          {id:"leaderboard", label:"🏆 Leaderboard"},
-          {id:"matches",     label:"⚽ Matches"},
-          {id:"fifagroups",  label:"🌍 FIFA Groups"},
-          {id:"poolgroups",  label:"🎯 Pool Groups"},
-          {id:"golden",      label:"🥇 Golden Boot"},
-          {id:"rules",       label:"📖 Rules & Scoring"},
-        ].map(s=>(
-          <button key={s.id} className={`stab ${sec===s.id?"on":""}`} onClick={()=>setSec(s.id)}>{s.label}</button>
-        ))}
-      </div>
-
-      {/* ── LEADERBOARD ── */}
-      {sec==="leaderboard" && (
-        <div>
-          {loading ? (
-            <div className="loading" style={{height:200}}><div className="spinner"/></div>
-          ) : scoredEntries.length === 0 ? (
-            <div className="card"><div style={{padding:40,textAlign:"center",color:"#5fa89e"}}>
-              <div style={{fontSize:48,marginBottom:12}}>🏆</div>
-              <div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2,marginBottom:8}}>STANDINGS LOADING</div>
-              <div style={{fontSize:14}}>Scores will appear here once the tournament begins and entries are processed.</div>
-            </div></div>
+        <div style={{textAlign:"center",minWidth:60}}>
+          {!isNS ? (
+            <div style={{fontFamily:"var(--F)",fontSize:28,color:isLive?"#e84545":"#ffffff"}}>
+              {homeGoals} - {awayGoals}
+            </div>
           ) : (
-            <>
-              {/* Podium */}
-              <div className="podium">
-                {scoredEntries.slice(0,3).map((e,i)=>(
-                  <div key={e.email+e.entryNumber} className={`pod p${i+1}`} style={{cursor:"pointer"}} onClick={()=>setSelectedEntry(selectedEntry?.email===e.email&&selectedEntry?.entryNumber===e.entryNumber?null:e)}>
-                    <div className="pos">{["🥇","🥈","🥉"][i]}</div>
-                    <div className="pteam">{e.name}</div>
-                    {(e.entryNumber||1) > 1 && <div style={{fontSize:11,color:"#5fa89e"}}>Entry {e.entryNumber}</div>}
-                    <div className="phr">{e.total}</div>
-                    <div className="plbl">POINTS</div>
-                  </div>
-                ))}
-              </div>
+            <div style={{fontFamily:"var(--F)",fontSize:18,color:"#5fa89e"}}>VS</div>
+          )}
+        </div>
+        <div style={{flex:1,textAlign:"right"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
+            <span style={{fontWeight:700,fontSize:15,color:"#ffffff"}}>{away}</span>
+            {f.teams?.away?.logo && <img src={f.teams.away.logo} style={{width:28,height:28,objectFit:"contain"}} alt=""/>}
+          </div>
+          {awayPickers.length > 0 && <div style={{fontSize:11,color:"#00c4b4",marginTop:4,textAlign:"right"}}>{awayPickers.join(", ")} 🎯</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-              <div className="card">
-                <div className="chdr">🏆 Pool Leaderboard <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"#5fa89e",fontWeight:400}}>Click any entry to see breakdown</span></div>
-                <table>
-                  <thead><tr><th style={{width:48}}>Rank</th><th>Participant</th><th className="r">Points</th><th style={{width:160}}></th></tr></thead>
-                  <tbody>
-                    {scoredEntries.map((e,i)=>{
-                      const isSelected = selectedEntry?.email===e.email && selectedEntry?.entryNumber===e.entryNumber;
-                      const maxPts = scoredEntries[0]?.total || 1;
-                      return (
-                        <>
-                          <tr key={e.email+(e.entryNumber||1)} style={{cursor:"pointer",background:isSelected?"rgba(0,196,180,.08)":""}}
-                            onClick={()=>setSelectedEntry(isSelected?null:e)}>
-                            <td><RB rank={i+1}/></td>
-                            <td>
-                              <span style={{fontWeight:600}}>{e.name}</span>
-                              {(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}
-                            </td>
-                            <td className="r"><span className="hn">{e.total}</span></td>
-                            <td><div className="lbar"><div className="lfill" style={{width:`${Math.round((e.total/maxPts)*100)}%`,background:i===0?"#00c4b4":i===1?"#b0b8cc":i===2?"#cd7f32":"#00c4b4"}}/></div></td>
-                          </tr>
-                          {isSelected && (
-                            <tr key={e.email+(e.entryNumber||1)+"detail"}>
-                              <td colSpan={4} style={{padding:0,background:"#0a1a1a"}}>
-                                <div style={{padding:16}}>
-                                  <div style={{fontFamily:"var(--F)",fontSize:14,letterSpacing:1,color:"#00c4b4",marginBottom:10}}>
+// ── APP ───────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [tab, setTab] = useState("dashboard");
+  const [allData, setAllData] = useState({});
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const tournamentStarted = new Date() >= DEADLINE;
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [juneRes, mayRes, aprilRes] = await Promise.all([
+          fetch(JUNE_CSV_URL).then(r=>r.text()),
+          fetch(MAY_CSV_URL).then(r=>r.text()),
+          fetch(APRIL_CSV_URL).then(r=>r.text()),
+        ]);
+        setAllData({ june: parseCSV(juneRes), may: parseCSV(mayRes), april: parseCSV(aprilRes) });
+        setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+      } catch {
+        setError("Could not load live data. Please refresh.");
+      }
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
+
+  if (error) return (<><style>{S}</style><div className="loading"><div style={{fontSize:40}}>⚠️</div><div>{error}</div></div></>);
+  if (loading) return (<><style>{S}</style><div className="loading"><div className="spinner"/><div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>LOADING LIVE DATA...</div></div></>);
+
+  const navTabs = [
+    {id:"dashboard", label:"🏠 Dashboard"},
+    {id:"hr",        label:"⚾ HR Derby"},
+    {id:"wc",        label:"⚽ World Cup"},
+  ];
+
+  return (
+    <>
+      <style>{S}</style>
+      <div>
+        <header className="hdr">
+          <div className="logo" style={{cursor:"pointer"}} onClick={()=>setTab("dashboard")}>WUG DERBY<span> POOLS</span></div>
+          <div style={{fontSize:13,color:"#5fa89e"}}>
+            {tournamentStarted
+              ? <span style={{color:"#e84545",fontWeight:700}}>🔴 TOURNAMENT LIVE</span>
+              : "Wug Derby Pools · 2026"}
+          </div>
+        </header>
+        <nav className="nav">
+          {navTabs.map(t=>(
+            <button key={t.id} className={`ntab ${tab===t.id?"on":""}`} onClick={()=>setTab(t.id)}>{t.label}</button>
+          ))}
+        </nav>
+        <main className="main">
+          {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} tournamentStarted={tournamentStarted}/>}
+          {tab==="hr"        && <HRDerby allData={allData} loading={loading}/>}
+          {tab==="wc"        && <WorldCup/>}
+        </main>
+      </div>
+    </>
+  );
+}
