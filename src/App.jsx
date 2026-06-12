@@ -646,7 +646,6 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
       </tr>
     </React.Fragment>
   ))}
-                ))}
               </tbody>
             </table>
           </div>
