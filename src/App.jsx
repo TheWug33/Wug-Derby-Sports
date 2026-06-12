@@ -517,6 +517,7 @@ function WorldCup({submissions}) {
   const [teamStats, setTeamStats] = useState({});
   const [apiLoading, setApiLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState("");
+   const [expandedEntry, setExpandedEntry] = useState(null);
 
  const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
 const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
@@ -580,7 +581,7 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
     {(() => {
       const TEAM_MAP = {"USA":"United States","Türkiye":"Turkey","Korea Republic":"South Korea","Côte d'Ivoire":"Ivory Coast","Bosnia and Herzegovina":"Bosnia","Curaçao":"Curacao","Congo DR":"DR Congo"};
       const scored = submissions.map(entry => {
-      const [expandedEntry, setExpandedEntry] = useState(null);
+     
         let total = 0;
         const breakdown = {};
         for (let g = 1; g <= 12; g++) {
