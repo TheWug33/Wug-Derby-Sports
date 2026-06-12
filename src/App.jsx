@@ -610,44 +610,47 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
           </div>
           <div className="card">
             <div className="chdr">Pool Leaderboard</div>
-            <table>
-              <thead><tr><th style={{width:48}}>Rank</th><th>Participant</th><th className="r">Points</th></tr></thead>
-              <tbody>
-               {scored.map((e,i) => (
-  <React.Fragment key={i}>
-  <tr style={{cursor:"pointer"}} onClick={()=>setExpandedEntry(expandedEntry===i?null:i)}>
-  <td><RB rank={i+1}/></td>
-  <td style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</td>
-  <td className="r"><span className="hn">{e.total}</span></td>
-</tr>
-    
-{expandedEntry===i&&(
-  <tr>
-    <td colSpan={3} style={{padding:0,background:"#0a1a1a"}}>
-      <div style={{padding:12,display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
-        {WC_GROUPS.map(g=>{
-          const bd=e.breakdown["group"+g.group];
-          return(
-            <div key={g.group} style={{background:"#000",border:"1px solid #1a3a3a",borderRadius:6,padding:"6px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1}}>GROUP {g.group}{g.multiplier>1?` · ${g.multiplier}×`:""}</div>
-                <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{bd?.team||"—"}</div>
-              </div>
-              <span style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4"}}>{bd?.scored||0}</span>
-            </div>
-          );
-        })}
-        <div style={{background:"#000",border:"1px solid #00c4b4",borderRadius:6,padding:"6px 10px",display:"flex",justifyContent:"space-between"}}>
-          <span style={{fontSize:12,color:"#5fa89e"}}>Golden Boot</span>
-          <span style={{fontSize:12,fontWeight:600,color:"#fff"}}>{e.goldenBoot||"—"}</span>
-        </div>
-      </div>
-    </td>
-      </tr>
-    </React.Fragment>
-  ))}
-              </tbody>
-            </table>
+          <table>
+  <thead><tr><th style={{width:48}}>Rank</th><th>Participant</th><th className="r">Points</th></tr></thead>
+  <tbody>
+    {scored.map((e,i) => {
+      const isExp = expandedEntry === i;
+      return (
+        <React.Fragment key={i}>
+          <tr style={{cursor:"pointer",background:isExp?"rgba(0,196,180,.08)":""}} onClick={()=>setExpandedEntry(isExp?null:i)}>
+            <td><RB rank={i+1}/></td>
+            <td style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</td>
+            <td className="r"><span className="hn">{e.total}</span></td>
+          </tr>
+          {isExp&&(
+            <tr>
+              <td colSpan={3} style={{padding:0,background:"#0a1a1a"}}>
+                <div style={{padding:12,display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
+                  {WC_GROUPS.map(g=>{
+                    const bd=e.breakdown["group"+g.group];
+                    return(
+                      <div key={g.group} style={{background:"#000",border:"1px solid #1a3a3a",borderRadius:6,padding:"6px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1}}>GROUP {g.group}{g.multiplier>1?` · ${g.multiplier}x`:""}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{bd?.team||"—"}</div>
+                        </div>
+                        <span style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4"}}>{bd?.scored||0}</span>
+                      </div>
+                    );
+                  })}
+                  <div style={{background:"#000",border:"1px solid #00c4b4",borderRadius:6,padding:"6px 10px",display:"flex",justifyContent:"space-between"}}>
+                    <span style={{fontSize:12,color:"#5fa89e"}}>Golden Boot</span>
+                    <span style={{fontSize:12,fontWeight:600,color:"#fff"}}>{e.goldenBoot||"—"}</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          )}
+        </React.Fragment>
+      );
+    })}
+  </tbody>
+</table>
           </div>
         </div>
       );
