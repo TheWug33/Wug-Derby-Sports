@@ -546,7 +546,7 @@ function WorldCup({submissions, wcScores}) {
   const [expandedEntry, setExpandedEntry] = useState(null);
 
   const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
-  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
+  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"payouts",label:"Payouts"},{id:"rules",label:"Rules"}];
   const tabs = isLocked ? liveTabs : preTabs;
 
   const refreshScores = () => {
@@ -919,7 +919,34 @@ function HRDerby({allData}) {
           </table>
         </div>
       )}
-
+{sec==="payouts" && (
+  <div className="sgrid">
+    <div className="card">
+      <div className="chdr">Pool Payouts</div>
+      <div style={{padding:"14px 16px"}}>
+        <div style={{fontFamily:"var(--F)",fontSize:13,letterSpacing:1,color:"#5fa89e",marginBottom:12}}>TOTAL PRIZE POOL: $1,410</div>
+        {[["1st Place","$650"],["2nd Place","$375"],["3rd Place","$245"],["4th Place","$140"]].map(([place,amt],i) => (
+          <div key={i} className="srow" style={i===3?{borderBottom:"none"}:{}}>
+            <span style={{fontSize:14,color:"#ddd",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontFamily:"var(--F)",fontSize:20,color:i===0?"#00c4b4":i===1?"#b0b8cc":i===2?"#cd7f32":"#5fa89e"}}>{["🥇","🥈","🥉","4️⃣"][i]}</span>
+              {place}
+            </span>
+            <span className="spts">{amt}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div className="card">
+      <div className="chdr">Golden Boot Prize</div>
+      <div style={{padding:"14px 16px"}}>
+        <div style={{fontFamily:"var(--F)",fontSize:13,letterSpacing:1,color:"#5fa89e",marginBottom:12}}>GOLDEN BOOT POT: $235</div>
+        <div className="srow"><span style={{fontSize:14,color:"#ddd"}}>Correct pick wins the pot</span><span className="spts">$235</span></div>
+        <div className="srow"><span style={{fontSize:14,color:"#ddd"}}>Multiple correct picks</span><span style={{fontSize:13,color:"#5fa89e"}}>Split evenly</span></div>
+        <div className="srow" style={{borderBottom:"none"}}><span style={{fontSize:14,color:"#ddd"}}>No correct pick</span><span style={{fontSize:13,color:"#5fa89e"}}>Rolls to main pool</span></div>
+      </div>
+    </div>
+  </div>
+)}
       {sec==="rules" && (
         <div className="card">
           <div className="chdr">Rules and Payouts</div>
