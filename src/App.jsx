@@ -515,8 +515,8 @@ function WorldCup({submissions}) {
   const isLocked = new Date() >= DEADLINE;
   const [sec, setSec] = useState(isLocked ? "leaderboard" : "enter");
 
-  const preTabs = [{id:"enter",label:"✏️ Submit Entry"},{id:"entries",label:"📋 All Entries"},{id:"groups",label:"🌍 Pool Groups"},{id:"scoring",label:"📊 Scoring"},{id:"rules",label:"📖 Rules"}];
-  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"📋 All Entries"},{id:"groups",{id:"scoring",label:"📊 Scoring"},{id:"rules",label:"📖 Rules"}];
+ const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
+const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
   const tabs = isLocked ? liveTabs : preTabs;
 
   return (
