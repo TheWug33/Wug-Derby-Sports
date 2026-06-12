@@ -538,6 +538,24 @@ const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"Al
 
       {sec==="enter" && <WCEntryForm/>}
 
+{sec==="leaderboard" && (
+  <div style={{padding:"40px 20px",textAlign:"center",color:"#5fa89e"}}>
+    <div style={{fontSize:48,marginBottom:16}}>🏆</div>
+    <div style={{fontFamily:"var(--F)",fontSize:28,letterSpacing:2,marginBottom:8,color:"#00c4b4"}}>LEADERBOARD COMING SOON</div>
+    <div style={{fontSize:14,marginBottom:32}}>Live scoring will update here as matches are played. Check back after each match!</div>
+    <div style={{background:"#0a1a1a",border:"2px solid #fff",borderRadius:8,padding:20,maxWidth:600,margin:"0 auto",textAlign:"left"}}>
+      <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"#00c4b4",marginBottom:12}}>SCORING REMINDER</div>
+      {[["Goal scored","1 pt"],["Group play win","3 pts"],["Group play draw","1 pt"],["Win group","8 pts"],["Finish 2nd","4 pts"],["Best 3rd place","2 pts"],["Win Round of 32","8 pts"],["Reach Quarterfinals","12 pts"],["Reach Semifinals","24 pts"],["Reach Final","36 pts"],["Win Championship","48 pts"]].map(([e,p],i) => (
+        <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #111",fontSize:13}}>
+          <span style={{color:"#ddd"}}>{e}</span>
+          <span style={{color:"#00c4b4",fontWeight:700}}>{p}</span>
+        </div>
+      ))}
+      <div style={{marginTop:12,fontSize:12,color:"#5fa89e"}}>Groups 6-9 earn 2× points · Groups 10-12 earn 3× points</div>
+    </div>
+  </div>
+)}
+      
       {sec==="entries" && (
         <div>
           {submissions.length === 0
