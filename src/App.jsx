@@ -985,13 +985,22 @@ function Dashboard({setTab, allData, updatedAt, submissions}) {
   <table>
     <thead><tr><th>Rank</th><th>Participant</th><th className="r">Points</th></tr></thead>
     <tbody>
-      {submissions.slice(0,5).map((s,i) => (
-        <tr key={i}>
-          <td><RB rank={i+1}/></td>
-          <td style={{fontWeight:500}}>{s.name}</td>
-          <td className="r"><span className="hn">—</span></td>
-        </tr>
-      ))}
+      {submissions.slice(0,5).map((s,i) => {
+        let total = 0;
+        for (let g = 1; g <= 12; g++) {
+          const team = s["group"+g]||"";
+          const mult = g>=10?3:g>=6?2:1;
+          const st = wcScores[team]||{};
+          total += ((st.goals||0)+(st.wins||0)*3+(st.draws||0)+(st.bonus||0))*mult;
+        }
+        return (
+          <tr key={i}>
+            <td><RB rank={i+1}/></td>
+            <td style={{fontWeight:500}}>{s.name}</td>
+            <td className="r"><span className="hn">{total}</span></td>
+          </tr>
+        );
+      })}
     </tbody>
   </table>
 </div>
