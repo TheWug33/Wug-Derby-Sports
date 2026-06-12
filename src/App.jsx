@@ -96,9 +96,9 @@ function parseSubmissions(text) {
     const r = rows[i];
     if (!r[1]) continue;
     const entry = { timestamp: r[0], name: r[1], email: r[2] };
-    for (let g = 1; g <= 12; g++) entry["group" + g] = r[g + 3] || "";
-    entry.goldenBoot = r[16] || "";
-    entry.entryNumber = r[18] || 1;
+    for (let g = 1; g <= 12; g++) entry["group" + g] = r[g + 2] || "";
+    entry.goldenBoot = r[15] || "";
+    entry.entryNumber = r[17] || 1;
     subs.push(entry);
   }
   return subs;
