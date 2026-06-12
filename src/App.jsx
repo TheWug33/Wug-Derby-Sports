@@ -1020,16 +1020,17 @@ export default function App() {
       setAllData({ june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
       setSubmissions(parseSubmissions(subs));
       setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+     const scoreRows = results[4].split("\n").slice(1);
+      const stats = {};
+      scoreRows.forEach(row => {
+        const cells = row.split(",");
+        const team = cells[0]?.trim();
+        if (!team) return;
+        stats[team] = {goals:parseInt(cells[1])||0,wins:parseInt(cells[2])||0,draws:parseInt(cells[3])||0,bonus:parseInt(cells[4])||0};
+      });
+      setWcScores(stats);
       setLoading(false);
-      const scoreRows = results[4].split("\n").slice(1);
-const stats = {};
-scoreRows.forEach(row => {
-  const cells = row.split(",");
-  const team = cells[0]?.trim();
-  if (!team) return;
-  stats[team] = {goals:parseInt(cells[1])||0,wins:parseInt(cells[2])||0,draws:parseInt(cells[3])||0,bonus:parseInt(cells[4])||0};
-});
-setWcScores(stats);
+    }).catch
     }).catch(() => { setError("Could not load data. Please refresh."); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
