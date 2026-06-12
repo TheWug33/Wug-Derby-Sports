@@ -524,8 +524,7 @@ const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"Al
 
   const fetchScores = () => {
   setApiLoading(true);
-  fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
-    headers: {"x-apisports-key": process.env.REACT_APP_FOOTBALL_API_KEY}
+  fetch("/api/scores")
   })
   .then(r => r.json())
   .then(data => {
