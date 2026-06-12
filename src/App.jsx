@@ -514,11 +514,45 @@ function WCEntryForm() {
 function WorldCup({submissions}) {
   const isLocked = new Date() >= DEADLINE;
   const [sec, setSec] = useState(isLocked ? "leaderboard" : "enter");
+  const [teamStats, setTeamStats] = useState({});
+  const [apiLoading, setApiLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState("");
 
  const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
 const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
   const tabs = isLocked ? liveTabs : preTabs;
 
+  const fetchScores = () => {
+  setApiLoading(true);
+  fetch("https://v3.football.api-sports.io/fixtures?league=1&season=2026", {
+    headers: {"x-apisports-key": process.env.REACT_APP_FOOTBALL_API_KEY}
+  })
+  .then(r => r.json())
+  .then(data => {
+    const stats = {};
+    (data.response || []).forEach(f => {
+      const status = f.fixture?.status?.short;
+      if (!["FT","AET","PEN","1H","HT","2H"].includes(status)) return;
+      const home = f.teams?.home?.name;
+      const away = f.teams?.away?.name;
+      const hg = f.goals?.home || 0;
+      const ag = f.goals?.away || 0;
+      if (!stats[home]) stats[home] = {goals:0,wins:0,draws:0};
+      if (!stats[away]) stats[away] = {goals:0,wins:0,draws:0};
+      stats[home].goals += hg;
+      stats[away].goals += ag;
+      if (hg > ag) stats[home].wins++;
+      else if (ag > hg) stats[away].wins++;
+      else { stats[home].draws++; stats[away].draws++; }
+    });
+    setTeamStats(stats);
+    setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+    setApiLoading(false);
+  })
+  .catch(() => setApiLoading(false));
+};
+
+useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
   return (
     <div>
       <div className="phdr">
