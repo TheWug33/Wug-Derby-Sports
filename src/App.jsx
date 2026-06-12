@@ -1007,6 +1007,7 @@ export default function App() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [wcScores, setWcScores] = useState({});
 
   useEffect(() => {
     Promise.all([
@@ -1014,11 +1015,21 @@ export default function App() {
       fetch(MAY_CSV_URL).then(r=>r.text()),
       fetch(APRIL_CSV_URL).then(r=>r.text()),
       fetch(SUBS_CSV_URL).then(r=>r.text()),
+      fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1428642588&single=true&output=csv").then(r=>r.text()),
     ]).then(([june, may, april, subs]) => {
       setAllData({ june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
       setSubmissions(parseSubmissions(subs));
       setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
       setLoading(false);
+      const scoreRows = results[4].split("\n").slice(1);
+const stats = {};
+scoreRows.forEach(row => {
+  const cells = row.split(",");
+  const team = cells[0]?.trim();
+  if (!team) return;
+  stats[team] = {goals:parseInt(cells[1])||0,wins:parseInt(cells[2])||0,draws:parseInt(cells[3])||0,bonus:parseInt(cells[4])||0};
+});
+setWcScores(stats);
     }).catch(() => { setError("Could not load data. Please refresh."); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
