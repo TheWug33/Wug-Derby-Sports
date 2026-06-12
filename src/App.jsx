@@ -525,7 +525,6 @@ const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"Al
   const fetchScores = () => {
   setApiLoading(true);
   fetch("/api/scores")
-  })
   .then(r => r.json())
   .then(data => {
     const stats = {};
