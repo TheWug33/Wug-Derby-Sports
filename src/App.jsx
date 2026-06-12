@@ -580,6 +580,7 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
     {(() => {
       const TEAM_MAP = {"USA":"United States","Türkiye":"Turkey","Korea Republic":"South Korea","Côte d'Ivoire":"Ivory Coast","Bosnia and Herzegovina":"Bosnia","Curaçao":"Curacao","Congo DR":"DR Congo"};
       const scored = submissions.map(entry => {
+      const [expandedEntry, setExpandedEntry] = useState(null);
         let total = 0;
         const breakdown = {};
         for (let g = 1; g <= 12; g++) {
@@ -613,11 +614,35 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
               <thead><tr><th style={{width:48}}>Rank</th><th>Participant</th><th className="r">Points</th></tr></thead>
               <tbody>
                 {scored.map((e,i) => (
-                  <tr key={i}>
-                    <td><RB rank={i+1}/></td>
-                    <td style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</td>
-                    <td className="r"><span className="hn">{e.total}</span></td>
-                  </tr>
+                 <tr key={i} style={{cursor:"pointer"}} onClick={()=>setExpandedEntry(expandedEntry===i?null:i)}>
+  <td><RB rank={i+1}/></td>
+  <td style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</td>
+  <td className="r"><span className="hn">{e.total}</span></td>
+</tr>
+{expandedEntry===i&&(
+  <tr key={i+"d"}>
+    <td colSpan={3} style={{padding:0,background:"#0a1a1a"}}>
+      <div style={{padding:12,display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
+        {WC_GROUPS.map(g=>{
+          const bd=e.breakdown["group"+g.group];
+          return(
+            <div key={g.group} style={{background:"#000",border:"1px solid #1a3a3a",borderRadius:6,padding:"6px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1}}>GROUP {g.group}{g.multiplier>1?` · ${g.multiplier}×`:""}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{bd?.team||"—"}</div>
+              </div>
+              <span style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4"}}>{bd?.scored||0}</span>
+            </div>
+          );
+        })}
+        <div style={{background:"#000",border:"1px solid #00c4b4",borderRadius:6,padding:"6px 10px",display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:12,color:"#5fa89e"}}>Golden Boot</span>
+          <span style={{fontSize:12,fontWeight:600,color:"#fff"}}>{e.goldenBoot||"—"}</span>
+        </div>
+      </div>
+    </td>
+  </tr>
+)}
                 ))}
               </tbody>
             </table>
