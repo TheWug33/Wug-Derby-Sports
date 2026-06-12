@@ -546,6 +546,7 @@ const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"Al
       else { stats[home].draws++; stats[away].draws++; }
     });
     setTeamStats(stats);
+    console.log("Team stats:", JSON.stringify(stats));
     setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
     setApiLoading(false);
   })
