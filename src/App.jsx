@@ -524,33 +524,28 @@ const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"Al
 
   const fetchScores = () => {
   setApiLoading(true);
-  fetch("/api/scores")
-  .then(r => r.json())
-  .then(data => {
-    const stats = {};
-    (data.response || []).forEach(f => {
-      const status = f.fixture?.status?.short;
-      if (!["FT","AET","PEN","1H","HT","2H"].includes(status)) return;
-      const home = f.teams?.home?.name;
-      const away = f.teams?.away?.name;
-      const hg = f.goals?.home || 0;
-      const ag = f.goals?.away || 0;
-      if (!stats[home]) stats[home] = {goals:0,wins:0,draws:0};
-      if (!stats[away]) stats[away] = {goals:0,wins:0,draws:0};
-      stats[home].goals += hg;
-      stats[away].goals += ag;
-      if (hg > ag) stats[home].wins++;
-      else if (ag > hg) stats[away].wins++;
-      else { stats[home].draws++; stats[away].draws++; }
-    });
-    setTeamStats(stats);
-    console.log("Team stats:", JSON.stringify(stats));
-    setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
-    setApiLoading(false);
-  })
-  .catch(() => setApiLoading(false));
+  fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1428642588&single=true&output=csv")
+    .then(r => r.text())
+    .then(text => {
+      const rows = text.split("\n").slice(1);
+      const stats = {};
+      rows.forEach(row => {
+        const cells = row.split(",");
+        const team = cells[0]?.trim();
+        if (!team) return;
+        stats[team] = {
+          goals: parseInt(cells[1]) || 0,
+          wins: parseInt(cells[2]) || 0,
+          draws: parseInt(cells[3]) || 0,
+          bonus: parseInt(cells[4]) || 0,
+        };
+      });
+      setTeamStats(stats);
+      setLastRefresh(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+      setApiLoading(false);
+    })
+    .catch(() => setApiLoading(false));
 };
-
 useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
   return (
     <div>
@@ -592,7 +587,7 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
           const mult = g >= 10 ? 3 : g >= 6 ? 2 : 1;
           const apiName = Object.keys(TEAM_MAP).find(k => TEAM_MAP[k] === team) || team;
           const stats = teamStats[team] || teamStats[apiName] || {goals:0,wins:0,draws:0};
-          const pts = (stats.goals||0)*1 + (stats.wins||0)*3 + (stats.draws||0)*1;
+          const pts = (stats.goals||0)*1 + (stats.wins||0)*3 + (stats.draws||0)*1 + (stats.bonus||0);
           const s = pts * mult;
           breakdown["group"+g] = {team,pts,mult,scored:s};
           total += s;
