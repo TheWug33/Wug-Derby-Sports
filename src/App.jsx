@@ -613,14 +613,16 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
             <table>
               <thead><tr><th style={{width:48}}>Rank</th><th>Participant</th><th className="r">Points</th></tr></thead>
               <tbody>
-                {scored.map((e,i) => (
-                 <tr key={i} style={{cursor:"pointer"}} onClick={()=>setExpandedEntry(expandedEntry===i?null:i)}>
+               {scored.map((e,i) => (
+  <React.Fragment key={i}>
+  <tr style={{cursor:"pointer"}} onClick={()=>setExpandedEntry(expandedEntry===i?null:i)}>
   <td><RB rank={i+1}/></td>
   <td style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</td>
   <td className="r"><span className="hn">{e.total}</span></td>
 </tr>
+    
 {expandedEntry===i&&(
-  <tr key={i+"d"}>
+  <tr>
     <td colSpan={3} style={{padding:0,background:"#0a1a1a"}}>
       <div style={{padding:12,display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
         {WC_GROUPS.map(g=>{
@@ -641,8 +643,9 @@ useEffect(() => { if (isLocked) fetchScores(); }, []); // eslint-disable-line
         </div>
       </div>
     </td>
-  </tr>
-)}
+</tr>
+  </React.Fragment>
+))}
                 ))}
               </tbody>
             </table>
