@@ -1050,9 +1050,9 @@ setWcScores(stats);
           ))}
         </nav>
         <main className="main">
-          {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} submissions={submissions}/>}
+          {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} submissions={submissions} wcScores={wcScores}/>}
           {tab==="hr" && <HRDerby allData={allData}/>}
-          {tab==="wc" && <WorldCup submissions={submissions}/>}
+          {tab==="wc" && <WorldCup submissions={submissions} wcScores={wcScores}/>}
         </main>
       </div>
     </>
