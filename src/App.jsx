@@ -546,7 +546,7 @@ function WorldCup({submissions, wcScores}) {
   const [expandedEntry, setExpandedEntry] = useState(null);
 
   const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
-  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"payouts",label:"Payouts"},{id:"rules",label:"Rules"}];
+  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"fifa",label:"FIFA Standings"},{id:"goldenboot",label:"Golden Boot"},{id:"payouts",label:"Payouts"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
   const tabs = isLocked ? liveTabs : preTabs;
 
   const refreshScores = () => {
@@ -730,6 +730,90 @@ function WorldCup({submissions, wcScores}) {
                   <div key={i} className="ri" style={i===a.length-1?{borderBottom:"none"}:{}}><span className="rn" style={{minWidth:64,fontSize:12,fontWeight:700}}>{k}</span><span style={{fontSize:13,color:"#ddd"}}>{v}</span></div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sec==="fifa" && (
+        <div>
+          <div style={{background:"#0a1a1a",border:"2px solid #fff",borderRadius:8,padding:"16px 20px",marginBottom:16,fontSize:13,color:"#5fa89e",lineHeight:1.7}}>
+            These are the official FIFA World Cup 2026 group standings. Note that FIFA groups are different from the Pool Groups used for scoring.
+          </div>
+          <div style={{background:"#0a1a1a",border:"2px solid #00c4b4",borderRadius:8,padding:20,textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:12}}>🌍</div>
+            <div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2,color:"#00c4b4",marginBottom:8}}>FIFA GROUP STANDINGS</div>
+            <div style={{fontSize:14,color:"#5fa89e",marginBottom:20}}>View the official live standings on FIFA.com.</div>
+            <a href="https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/standings" target="_blank" rel="noreferrer"
+              style={{display:"inline-block",background:"#00c4b4",color:"#000",fontFamily:"var(--F)",fontSize:18,letterSpacing:2,padding:"12px 28px",borderRadius:6,textDecoration:"none",border:"2px solid #fff"}}>
+              VIEW ON FIFA.COM
+            </a>
+            <div style={{marginTop:16,fontSize:12,color:"#5fa89e"}}>Opens official FIFA standings in a new tab</div>
+          </div>
+        </div>
+      )}
+
+      {sec==="goldenboot" && (
+        <div className="card">
+          <div className="chdr">Golden Boot Race</div>
+          <div style={{padding:"16px 20px"}}>
+            <div style={{fontSize:13,color:"#5fa89e",marginBottom:20,lineHeight:1.7}}>
+              $5 from each entry goes to whoever picks the tournament top scorer.
+              <strong style={{color:"#fff"}}> Total pot: ${submissions.length * 5}</strong>
+            </div>
+            {(() => {
+              const tally = {};
+              submissions.forEach(s => {
+                const p = s.goldenBoot || "Unknown";
+                if (!tally[p]) tally[p] = [];
+                tally[p].push(s.name);
+              });
+              const sorted = Object.entries(tally).sort((a,b) => b[1].length - a[1].length);
+              const maxPicks = sorted[0]?.[1]?.length || 1;
+              return sorted.map(([player, pickers], i) => (
+                <div key={player} style={{marginBottom:18}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontWeight:600,color:"#fff",fontSize:14}}>{player}</span>
+                      <span style={{fontSize:12,color:"#5fa89e"}}>{pickers.length} pick{pickers.length!==1?"s":""}</span>
+                    </div>
+                    <span style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4"}}>{pickers.length}</span>
+                  </div>
+                  <div className="lbar" style={{height:6,marginBottom:4}}>
+                    <div className="lfill" style={{width:Math.round((pickers.length/maxPicks)*100)+"%",background:i===0?"#00c4b4":"#1a3a3a"}}/>
+                  </div>
+                  <div style={{fontSize:11,color:"#5fa89e"}}>{pickers.join(", ")}</div>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+      )}
+
+      {sec==="payouts" && (
+        <div className="sgrid">
+          <div className="card">
+            <div className="chdr">Pool Payouts</div>
+            <div style={{padding:"14px 16px"}}>
+              <div style={{fontFamily:"var(--F)",fontSize:13,letterSpacing:1,color:"#5fa89e",marginBottom:12}}>TOTAL PRIZE POOL: $1,410</div>
+              {[["1st Place","$650","#00c4b4"],["2nd Place","$375","#b0b8cc"],["3rd Place","$245","#cd7f32"],["4th Place","$140","#5fa89e"]].map(([place,amt,color],i) => (
+                <div key={i} className="srow" style={i===3?{borderBottom:"none"}:{}}>
+                  <span style={{fontSize:14,color:"#ddd",display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontFamily:"var(--F)",fontSize:22,color:color}}>{["1st","2nd","3rd","4th"][i]}</span>
+                    {place}
+                  </span>
+                  <span className="spts" style={{color:color}}>{amt}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card">
+            <div className="chdr">Golden Boot Prize</div>
+            <div style={{padding:"14px 16px"}}>
+              <div style={{fontFamily:"var(--F)",fontSize:13,letterSpacing:1,color:"#5fa89e",marginBottom:12}}>GOLDEN BOOT POT: $235</div>
+              <div className="srow"><span style={{fontSize:14,color:"#ddd"}}>Correct pick wins the pot</span><span className="spts">$235</span></div>
+              <div className="srow"><span style={{fontSize:14,color:"#ddd"}}>Multiple correct picks</span><span style={{fontSize:13,color:"#5fa89e"}}>Split evenly</span></div>
+              <div className="srow" style={{borderBottom:"none"}}><span style={{fontSize:14,color:"#ddd"}}>No correct pick</span><span style={{fontSize:13,color:"#5fa89e"}}>Rolls to main pool</span></div>
             </div>
           </div>
         </div>
@@ -919,34 +1003,7 @@ function HRDerby({allData}) {
           </table>
         </div>
       )}
-{sec==="payouts" && (
-  <div className="sgrid">
-    <div className="card">
-      <div className="chdr">Pool Payouts</div>
-      <div style={{padding:"14px 16px"}}>
-        <div style={{fontFamily:"var(--F)",fontSize:13,letterSpacing:1,color:"#5fa89e",marginBottom:12}}>TOTAL PRIZE POOL: $1,410</div>
-        {[["1st Place","$650"],["2nd Place","$375"],["3rd Place","$245"],["4th Place","$140"]].map(([place,amt],i) => (
-          <div key={i} className="srow" style={i===3?{borderBottom:"none"}:{}}>
-            <span style={{fontSize:14,color:"#ddd",display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontFamily:"var(--F)",fontSize:20,color:i===0?"#00c4b4":i===1?"#b0b8cc":i===2?"#cd7f32":"#5fa89e"}}>{["🥇","🥈","🥉","4️⃣"][i]}</span>
-              {place}
-            </span>
-            <span className="spts">{amt}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-    <div className="card">
-      <div className="chdr">Golden Boot Prize</div>
-      <div style={{padding:"14px 16px"}}>
-        <div style={{fontFamily:"var(--F)",fontSize:13,letterSpacing:1,color:"#5fa89e",marginBottom:12}}>GOLDEN BOOT POT: $235</div>
-        <div className="srow"><span style={{fontSize:14,color:"#ddd"}}>Correct pick wins the pot</span><span className="spts">$235</span></div>
-        <div className="srow"><span style={{fontSize:14,color:"#ddd"}}>Multiple correct picks</span><span style={{fontSize:13,color:"#5fa89e"}}>Split evenly</span></div>
-        <div className="srow" style={{borderBottom:"none"}}><span style={{fontSize:14,color:"#ddd"}}>No correct pick</span><span style={{fontSize:13,color:"#5fa89e"}}>Rolls to main pool</span></div>
-      </div>
-    </div>
-  </div>
-)}
+
       {sec==="rules" && (
         <div className="card">
           <div className="chdr">Rules and Payouts</div>
