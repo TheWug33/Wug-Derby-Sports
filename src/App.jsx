@@ -567,17 +567,21 @@ function WorldCup({submissions, wcScores}) {
       return {...entry, total, breakdown};
     }).sort((a,b) => b.total - a.total);
   };
-const getOwnership = () => {
-  const counts = {};
-  submissions.forEach(entry => {
-    for (let g = 1; g <= 12; g++) {
-      const team = entry["group"+g] || "";
-      if (!counts[team]) counts[team] = 0;
-      counts[team]++;
-    }
-  });
-  return counts;
-};
+
+  const ownership = (() => {
+    const counts = {};
+    submissions.forEach(entry => {
+      for (let g = 1; g <= 12; g++) {
+        const team = entry["group"+g] || "";
+        if (!team) continue;
+        if (!counts[team]) counts[team] = 0;
+        counts[team]++;
+      }
+    });
+    return counts;
+  })();
+  const ownPct = (team) => submissions.length ? Math.round((ownership[team]||0)/submissions.length*100) : 0;
+
   return (
     <div>
       <div className="phdr">
@@ -640,7 +644,7 @@ const getOwnership = () => {
                                       <div key={g.group} className="breakdown-cell">
                                         <div>
                                           <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1}}>GROUP {g.group}{g.multiplier>1?" - "+g.multiplier+"x":""}</div>
-                                          <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{bd?bd.team:"—"}</div>
+                                          <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{bd?bd.team:"—"}{bd&&bd.team&&<span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(bd.team)}%</span>}</div>
                                         </div>
                                         <span style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4"}}>{bd?bd.scored:0}</span>
                                       </div>
@@ -681,15 +685,18 @@ const getOwnership = () => {
                       <div style={{fontSize:12,color:"#5fa89e"}}>#{i+1}</div>
                     </div>
                     <div style={{padding:"6px 0"}}>
-                      {WC_GROUPS.map(g => (
+                      {WC_GROUPS.map(g => {
+                        const team = entry["group"+g.group]||"";
+                        return (
                         <div key={g.group} style={{display:"flex",justifyContent:"space-between",padding:"4px 14px",borderBottom:"1px solid #111",fontSize:12}}>
                           <span style={{color:"#5fa89e"}}>Group {g.group}{g.multiplier>1?" ("+g.multiplier+"x)":""}</span>
-                         <span style={{fontWeight:600,color:"#fff"}}>
-  {entry["group"+g.group]||"—"}
-  {entry["group"+g.group] && <span style={{fontSize:10,color:"#5fa89e",marginLeft:6}}>{Math.round((ownership[entry["group"+g.group]]||0)/submissions.length*100)}%</span>}
-</span>
+                          <span style={{fontWeight:600,color:"#fff"}}>
+                            {team||"—"}
+                            {team && <span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(team)}% owned</span>}
+                          </span>
                         </div>
-                      ))}
+                        );
+                      })}
                       <div style={{display:"flex",justifyContent:"space-between",padding:"6px 14px",fontSize:12,background:"rgba(0,196,180,.05)"}}>
                         <span style={{color:"#5fa89e"}}>Golden Boot</span>
                         <span style={{fontWeight:600,color:"#fff"}}>{entry.goldenBoot||"—"}</span>
@@ -1049,7 +1056,6 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   const ml = [...ms].sort((a,b)=>b.month-a.month)[0] || {};
   const isLocked = new Date() >= DEADLINE;
 
-  const ownership = getOwnership();
   const topWC = submissions.map(entry => {
     const {total} = calcScore(entry, wcScores);
     return {...entry, total};
