@@ -684,7 +684,10 @@ const getOwnership = () => {
                       {WC_GROUPS.map(g => (
                         <div key={g.group} style={{display:"flex",justifyContent:"space-between",padding:"4px 14px",borderBottom:"1px solid #111",fontSize:12}}>
                           <span style={{color:"#5fa89e"}}>Group {g.group}{g.multiplier>1?" ("+g.multiplier+"x)":""}</span>
-                          <span style={{fontWeight:600,color:"#fff"}}>{entry["group"+g.group]||"—"}</span>
+                         <span style={{fontWeight:600,color:"#fff"}}>
+  {entry["group"+g.group]||"—"}
+  {entry["group"+g.group] && <span style={{fontSize:10,color:"#5fa89e",marginLeft:6}}>{Math.round((ownership[entry["group"+g.group]]||0)/submissions.length*100)}%</span>}
+</span>
                         </div>
                       ))}
                       <div style={{display:"flex",justifyContent:"space-between",padding:"6px 14px",fontSize:12,background:"rgba(0,196,180,.05)"}}>
@@ -1046,6 +1049,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   const ml = [...ms].sort((a,b)=>b.month-a.month)[0] || {};
   const isLocked = new Date() >= DEADLINE;
 
+  const ownership = getOwnership();
   const topWC = submissions.map(entry => {
     const {total} = calcScore(entry, wcScores);
     return {...entry, total};
