@@ -567,7 +567,17 @@ function WorldCup({submissions, wcScores}) {
       return {...entry, total, breakdown};
     }).sort((a,b) => b.total - a.total);
   };
-
+const getOwnership = () => {
+  const counts = {};
+  submissions.forEach(entry => {
+    for (let g = 1; g <= 12; g++) {
+      const team = entry["group"+g] || "";
+      if (!counts[team]) counts[team] = 0;
+      counts[team]++;
+    }
+  });
+  return counts;
+};
   return (
     <div>
       <div className="phdr">
