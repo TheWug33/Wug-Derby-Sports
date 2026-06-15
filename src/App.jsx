@@ -5,6 +5,7 @@ const MAY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M
 const APRIL_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=172900262&single=true&output=csv";
 const SUBS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=972756262&single=true&output=csv";
 const SCORES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1428642588&single=true&output=csv";
+const SCORERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1371890124&single=true&output=csv";
 const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
 const DEADLINE = new Date("2026-06-11T15:00:00");
 
@@ -113,6 +114,20 @@ function parseScores(text) {
     };
   });
   return stats;
+}
+
+function parseScorers(text) {
+  const rows = text.split("\n").slice(1);
+  const scorers = [];
+  rows.forEach(row => {
+    const cells = row.split(",");
+    const player = cells[0]?.trim();
+    const goals = parseInt(cells[1]) || 0;
+    const team = cells[2]?.trim() || "";
+    if (!player) return;
+    scorers.push({player, goals, team});
+  });
+  return scorers.sort((a,b) => b.goals - a.goals);
 }
 
 function calcScore(entry, teamStats) {
@@ -537,7 +552,7 @@ function WCEntryForm() {
 }
 
 // ── WORLD CUP PAGE ────────────────────────────────────────────────────────────
-function WorldCup({submissions, wcScores}) {
+function WorldCup({submissions, wcScores, wcScorers}) {
   const isLocked = new Date() >= DEADLINE;
   const [sec, setSec] = useState(isLocked ? "leaderboard" : "enter");
   const [apiLoading, setApiLoading] = useState(false);
@@ -774,15 +789,54 @@ function WorldCup({submissions, wcScores}) {
       )}
 
       {sec==="goldenboot" && (
-        <div className="card">
-          <div className="chdr">Golden Boot Race</div>
-          <div style={{padding:"16px 20px"}}>
-            <div style={{fontSize:13,color:"#5fa89e",marginBottom:20,lineHeight:1.7}}>
-              $5 from each entry goes to whoever picks the tournament top scorer.
-              <strong style={{color:"#fff"}}> Total pot: ${submissions.length * 5}</strong>
+        <div>
+          <div className="card">
+            <div className="chdr">Live Golden Boot Race - Top Scorers</div>
+            <div style={{padding:"16px 20px"}}>
+              {wcScorers.length === 0 ? (
+                <div style={{textAlign:"center",color:"#5fa89e",padding:"20px 0"}}>
+                  <div style={{fontSize:32,marginBottom:8}}>⚽</div>
+                  <div style={{fontSize:14}}>Top scorer data will appear here once goals are recorded.</div>
+                </div>
+              ) : (() => {
+                const pickedSet = {};
+                submissions.forEach(s => {
+                  const gb = (s.goldenBoot||"").trim().toLowerCase();
+                  if (gb) { if (!pickedSet[gb]) pickedSet[gb] = []; pickedSet[gb].push(s.name); }
+                });
+                const maxG = wcScorers[0]?.goals || 1;
+                return wcScorers.slice(0,10).map((sc, i) => {
+                  const pickers = pickedSet[sc.player.trim().toLowerCase()] || [];
+                  return (
+                    <div key={i} style={{marginBottom:14}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{fontFamily:"var(--F)",fontSize:18,color:i===0?"#00c4b4":"#5fa89e",minWidth:24}}>{i+1}</span>
+                          <span style={{fontWeight:600,color:"#fff",fontSize:14}}>{sc.player}</span>
+                          {sc.team && <span style={{fontSize:11,color:"#5fa89e"}}>{sc.team}</span>}
+                          {pickers.length > 0 && <span style={{fontSize:10,color:"#00c4b4",background:"rgba(0,196,180,.12)",border:"1px solid #00c4b4",borderRadius:3,padding:"1px 6px"}}>PICKED x{pickers.length}</span>}
+                        </div>
+                        <span style={{fontFamily:"var(--F)",fontSize:20,color:"#00c4b4"}}>{sc.goals}</span>
+                      </div>
+                      <div className="lbar" style={{height:6}}>
+                        <div className="lfill" style={{width:Math.round((sc.goals/maxG)*100)+"%",background:i===0?"#00c4b4":"#1a3a3a"}}/>
+                      </div>
+                      {pickers.length > 0 && <div style={{fontSize:11,color:"#5fa89e",marginTop:3}}>In your pool: {pickers.join(", ")}</div>}
+                    </div>
+                  );
+                });
+              })()}
             </div>
-            {(() => {
-              const tally = {};
+          </div>
+          <div className="card">
+            <div className="chdr">Pool Golden Boot Picks</div>
+            <div style={{padding:"16px 20px"}}>
+              <div style={{fontSize:13,color:"#5fa89e",marginBottom:20,lineHeight:1.7}}>
+                $5 from each entry goes to whoever picks the tournament top scorer.
+                <strong style={{color:"#fff"}}> Total pot: ${submissions.length * 5}</strong>
+              </div>
+              {(() => {
+                const tally = {};
               submissions.forEach(s => {
                 const p = s.goldenBoot || "Unknown";
                 if (!tally[p]) tally[p] = [];
@@ -806,6 +860,7 @@ function WorldCup({submissions, wcScores}) {
                 </div>
               ));
             })()}
+            </div>
           </div>
         </div>
       )}
@@ -1143,6 +1198,7 @@ export default function App() {
   const [updatedAt, setUpdatedAt] = useState("");
   const [submissions, setSubmissions] = useState([]);
   const [wcScores, setWcScores] = useState({});
+  const [wcScorers, setWcScorers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -1153,10 +1209,12 @@ export default function App() {
       fetch(APRIL_CSV_URL).then(r=>r.text()),
       fetch(SUBS_CSV_URL).then(r=>r.text()),
       fetch(SCORES_CSV_URL).then(r=>r.text()),
-    ]).then(([june, may, april, subs, scores]) => {
+      fetch(SCORERS_CSV_URL).then(r=>r.text()),
+    ]).then(([june, may, april, subs, scores, scorers]) => {
       setAllData({ june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
       setSubmissions(parseSubmissions(subs));
       setWcScores(parseScores(scores));
+      setWcScorers(parseScorers(scorers));
       setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
       setLoading(false);
     }).catch(() => { setError("Could not load data. Please refresh."); setLoading(false); });
@@ -1181,7 +1239,7 @@ export default function App() {
         <main className="main">
           {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} submissions={submissions} wcScores={wcScores}/>}
           {tab==="hr" && <HRDerby allData={allData}/>}
-          {tab==="wc" && <WorldCup submissions={submissions} wcScores={wcScores}/>}
+          {tab==="wc" && <WorldCup submissions={submissions} wcScores={wcScores} wcScorers={wcScorers}/>}
         </main>
       </div>
     </>
