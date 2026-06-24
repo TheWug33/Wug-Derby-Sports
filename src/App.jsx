@@ -106,11 +106,13 @@ function parseScores(text) {
     const cells = row.split(",");
     const team = cells[0]?.trim();
     if (!team) return;
+    const elim = (cells[5] || "").trim().toLowerCase();
     stats[team] = {
       goals: parseInt(cells[1]) || 0,
       wins: parseInt(cells[2]) || 0,
       draws: parseInt(cells[3]) || 0,
       bonus: parseInt(cells[4]) || 0,
+      eliminated: elim === "x" || elim === "out" || elim === "yes" || elim === "true" || elim === "1",
     };
   });
   return stats;
@@ -237,6 +239,9 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .gchdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;background:#0a1a1a;border-bottom:2px solid #fff}
 .gname{font-family:var(--F);font-size:18px;letter-spacing:1px;color:#00c4b4}
 .grow{padding:8px 16px;font-size:14px;border-bottom:1px solid #111;color:#fff}.grow:last-child{border-bottom:none}
+.elim{text-decoration:line-through;text-decoration-color:#e84545;text-decoration-thickness:2px;color:#5fa89e}
+.grow.elim{color:#5fa89e}
+.outtag{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;background:rgba(232,69,69,.12);color:#e84545;border:1px solid #e84545;vertical-align:middle;text-decoration:none}
 .srow{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #111}.srow:last-child{border-bottom:none}
 .spts{font-family:var(--F);font-size:22px;color:#00c4b4}
 .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -596,6 +601,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
     return counts;
   })();
   const ownPct = (team) => submissions.length ? Math.round((ownership[team]||0)/submissions.length*100) : 0;
+  const isOut = (team) => !!(team && teamStats[team] && teamStats[team].eliminated);
 
   return (
     <div>
@@ -659,7 +665,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                                       <div key={g.group} className="breakdown-cell">
                                         <div>
                                           <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1}}>GROUP {g.group}{g.multiplier>1?" - "+g.multiplier+"x":""}</div>
-                                          <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{bd?bd.team:"—"}{bd&&bd.team&&<span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(bd.team)}%</span>}</div>
+                                          <div style={{fontSize:13,fontWeight:600,color:"#fff"}}><span className={bd&&isOut(bd.team)?"elim":""}>{bd?bd.team:"—"}</span>{bd&&bd.team&&isOut(bd.team)&&<span className="outtag">OUT</span>}{bd&&bd.team&&<span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(bd.team)}%</span>}</div>
                                         </div>
                                         <span style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4"}}>{bd?bd.scored:0}</span>
                                       </div>
@@ -706,7 +712,8 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                         <div key={g.group} style={{display:"flex",justifyContent:"space-between",padding:"4px 14px",borderBottom:"1px solid #111",fontSize:12}}>
                           <span style={{color:"#5fa89e"}}>Group {g.group}{g.multiplier>1?" ("+g.multiplier+"x)":""}</span>
                           <span style={{fontWeight:600,color:"#fff"}}>
-                            {team||"—"}
+                            <span className={isOut(team)?"elim":""}>{team||"—"}</span>
+                            {team && isOut(team) && <span className="outtag">OUT</span>}
                             {team && <span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(team)}% owned</span>}
                           </span>
                         </div>
@@ -738,7 +745,11 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                   <span className="gname">Pool Group {g.group}</span>
                   {g.multiplier===2?<span className="m2x">2x DOUBLE</span>:g.multiplier===3?<span className="m3x">3x TRIPLE</span>:<span className="m1x">1x</span>}
                 </div>
-                {g.teams.map(t => <div key={t} className="grow">{t}</div>)}
+                {g.teams.map(t => (
+                  <div key={t} className={"grow"+(isOut(t)?" elim":"")}>
+                    {t}{isOut(t)&&<span className="outtag">OUT</span>}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
