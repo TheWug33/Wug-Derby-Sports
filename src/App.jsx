@@ -113,6 +113,7 @@ function parseScores(text) {
       draws: parseInt(cells[3]) || 0,
       bonus: parseInt(cells[4]) || 0,
       eliminated: elim === "x" || elim === "out" || elim === "yes" || elim === "true" || elim === "1",
+      played: parseInt(cells[6]) || 0,
     };
   });
   return stats;
@@ -324,6 +325,18 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .ec-hdr{padding:12px 16px;background:#0a1a1a;border-bottom:2px solid #fff;display:flex;align-items:center;justify-content:space-between}
 .ec-name{font-family:var(--F);font-size:16px;letter-spacing:1px;color:#fff}
 .breakdown-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;padding:12px}
+.mplayed{display:flex;align-items:center;justify-content:space-between;margin:0 12px 4px;padding:8px 14px;background:rgba(0,196,180,.06);border:1px solid #1a3a3a;border-radius:6px}
+.oddsbanner{background:#0a1a1a;border:2px solid #fff;border-left:5px solid #00c4b4;border-radius:8px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#5fa89e;line-height:1.7}
+.oddsrow{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid #111}.oddsrow:last-child{border-bottom:none}
+.oddsname{font-weight:600;font-size:15px;color:#fff}
+.oddsentry{font-size:11px;color:#5fa89e;margin-left:8px;font-weight:400}
+.oddsmeta{font-size:12px;color:#5fa89e;margin:3px 0 7px}
+.oddsbar{height:7px;background:#0f2424;border:1px solid #1a3a3a;border-radius:4px;overflow:hidden}
+.oddsfill{height:100%;background:linear-gradient(90deg,#00a89a,#00e5d4);border-radius:4px;transition:width .3s}
+.oddspct{font-family:var(--F);font-size:26px;color:#00c4b4;letter-spacing:1px;min-width:64px;text-align:right}
+.mplayed-lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#5fa89e}
+.mplayed-val{font-family:var(--F);font-size:20px;color:#00c4b4;letter-spacing:1px}
+.mplayed-tot{color:#5fa89e;font-size:16px}
 .breakdown-cell{background:#000;border:1px solid #1a3a3a;border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between}
 `;
 
@@ -566,7 +579,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
   const [expandedEntry, setExpandedEntry] = useState(null);
 
   const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
-  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"fifa",label:"FIFA Standings"},{id:"goldenboot",label:"Golden Boot"},{id:"payouts",label:"Payouts"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
+  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"odds",label:"Win Odds"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"fifa",label:"FIFA Standings"},{id:"goldenboot",label:"Golden Boot"},{id:"payouts",label:"Payouts"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
   const tabs = isLocked ? liveTabs : preTabs;
 
   const refreshScores = () => {
@@ -602,6 +615,54 @@ function WorldCup({submissions, wcScores, wcScorers}) {
   })();
   const ownPct = (team) => submissions.length ? Math.round((ownership[team]||0)/submissions.length*100) : 0;
   const isOut = (team) => !!(team && teamStats[team] && teamStats[team].eliminated);
+  const matchesPlayed = (entry) => {
+    let n = 0;
+    for (let g = 1; g <= 12; g++) {
+      const team = entry["group"+g] || "";
+      if (team && teamStats[team]) n += (teamStats[team].played || 0);
+    }
+    return n;
+  };
+  const matchesTotal = (entry) => {
+    let t = 0;
+    for (let g = 1; g <= 12; g++) if (entry["group"+g]) t += 3;
+    return t;
+  };
+
+  // Auto team strength (0-1) from live tournament form: results weighted heavier than goals.
+  const teamStrength = (team) => {
+    const s = teamStats[team];
+    if (!s) return 0;
+    const gp = Math.max(s.played || 0, 1);
+    const ppg = ((s.wins||0)*3 + (s.draws||0)) / gp;     // 0..3
+    const gpg = (s.goals||0) / gp;                        // ~0..3
+    const strength = 0.6*(ppg/3) + 0.4*Math.min(gpg/3, 1);
+    return Math.max(0.05, Math.min(1, strength));
+  };
+
+  // Projected pool finish = points banked + upside from each still-alive team (strength x pool multiplier).
+  const FWD_K = 40;
+  const getOdds = () => {
+    const rows = submissions.map(entry => {
+      const { total } = calcScore(entry, teamStats);
+      let forward = 0, alive = 0;
+      for (let g = 1; g <= 12; g++) {
+        const team = entry["group"+g] || "";
+        if (!team) continue;
+        const st = teamStats[team];
+        if (st && !st.eliminated) {
+          alive++;
+          const mult = g >= 10 ? 3 : g >= 6 ? 2 : 1;
+          forward += teamStrength(team) * mult * FWD_K;
+        }
+      }
+      return { entry, current: total, alive, projected: total + forward };
+    });
+    const P = 3;
+    const denom = rows.reduce((a,r) => a + Math.pow(Math.max(r.projected,0), P), 0) || 1;
+    rows.forEach(r => { r.winPct = Math.pow(Math.max(r.projected,0), P) / denom * 100; });
+    return rows.sort((a,b) => b.projected - a.projected);
+  };
 
   return (
     <div>
@@ -658,7 +719,12 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                             <td>
                               <div style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</div>
                               {isExp && (
-                                <div className="breakdown-grid" style={{marginTop:8}}>
+                                <div style={{marginTop:8}}>
+                                  <div className="mplayed">
+                                    <span className="mplayed-lbl">Matches Played</span>
+                                    <span className="mplayed-val">{matchesPlayed(e)}<span className="mplayed-tot"> / {matchesTotal(e)}</span></span>
+                                  </div>
+                                  <div className="breakdown-grid">
                                   {WC_GROUPS.map(g => {
                                     const bd = e.breakdown["group"+g.group];
                                     return (
@@ -675,6 +741,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                                     <span style={{fontSize:12,color:"#5fa89e"}}>Golden Boot</span>
                                     <span style={{fontSize:12,fontWeight:600,color:"#fff"}}>{e.goldenBoot||"—"}</span>
                                   </div>
+                                  </div>
                                 </div>
                               )}
                             </td>
@@ -684,6 +751,39 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                       })}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {sec==="odds" && (
+        <div>
+          <div className="oddsbanner">
+            Live projection of who's most likely to win the pool — based on points already banked, how many of each roster's teams are still alive, and each surviving team's current form (with your 2x/3x pool multipliers applied). This is a model estimate, not betting odds.
+          </div>
+          {submissions.length === 0 ? (
+            <div className="card"><div style={{padding:40,textAlign:"center",color:"#5fa89e"}}>No entries yet.</div></div>
+          ) : (() => {
+            const odds = getOdds();
+            const top = odds.slice(0,5);
+            const maxPct = top.length ? (top[0].winPct || 1) : 1;
+            return (
+              <div className="card">
+                <div className="chdr">Live Win Odds - Top 5 <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"#5fa89e",fontWeight:400}}>Updates with results</span></div>
+                <div style={{padding:"6px 0"}}>
+                  {top.map((r,i) => (
+                    <div key={i} className="oddsrow">
+                      <RB rank={i+1}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div className="oddsname">{r.entry.name}{(r.entry.entryNumber||1)>1 && <span className="oddsentry">Entry {r.entry.entryNumber}</span>}</div>
+                        <div className="oddsmeta">Now {r.current} · Proj {Math.round(r.projected)} · {r.alive}/12 alive</div>
+                        <div className="oddsbar"><div className="oddsfill" style={{width:Math.max(4,(r.winPct/maxPct*100))+"%"}}/></div>
+                      </div>
+                      <div className="oddspct">{r.winPct.toFixed(1)}%</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
