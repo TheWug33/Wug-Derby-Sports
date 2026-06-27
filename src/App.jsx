@@ -6,6 +6,8 @@ const APRIL_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx
 const SUBS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=972756262&single=true&output=csv";
 const SCORES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1428642588&single=true&output=csv";
 const SCORERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1371890124&single=true&output=csv";
+// TICKER: paste the published-CSV URL of your new "Ticker" sheet tab here (same Publish-to-web format as the lines above). Leave "" to hide the ticker.
+const TICKER_CSV_URL = "";
 const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
 const DEADLINE = new Date("2026-06-11T15:00:00");
 
@@ -131,6 +133,24 @@ function parseScorers(text) {
     scorers.push({player, goals, team});
   });
   return scorers.sort((a,b) => b.goals - a.goals);
+}
+
+function parseTicker(text) {
+  const out = [];
+  text.split("\n").forEach((r, idx) => {
+    if (idx === 0) return; // skip header row
+    const cells = []; let cur = ""; let inQ = false;
+    for (let c of r) {
+      if (c === '"') inQ = !inQ;
+      else if (c === "," && !inQ) { cells.push(cur.trim()); cur = ""; }
+      else cur += c;
+    }
+    cells.push(cur.trim());
+    const msg = (cells[0] || "").trim();
+    if (!msg) return;
+    out.push({ msg, label: (cells[1] || "").trim() });
+  });
+  return out;
 }
 
 function calcScore(entry, teamStats) {
@@ -334,6 +354,15 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .oddsbar{height:7px;background:#0f2424;border:1px solid #1a3a3a;border-radius:4px;overflow:hidden}
 .oddsfill{height:100%;background:linear-gradient(90deg,#00a89a,#00e5d4);border-radius:4px;transition:width .3s}
 .oddspct{font-family:var(--F);font-size:26px;color:#00c4b4;letter-spacing:1px;min-width:64px;text-align:right}
+.ticker{display:flex;align-items:stretch;background:#0a1414;border:1px solid #1a3a3a;border-radius:8px;overflow:hidden;margin-bottom:16px}
+.ticker-tag{flex-shrink:0;display:flex;align-items:center;padding:0 16px;background:#00c4b4;color:#001a18;font-family:var(--F);letter-spacing:2px;font-size:14px}
+.ticker-view{overflow:hidden;flex:1;display:flex;align-items:center}
+.ticker-track{display:inline-flex;align-items:center;white-space:nowrap;animation:tickerscroll 38s linear infinite}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker-item{display:inline-flex;align-items:center;color:#cfeae7;font-size:14px;padding:11px 0}
+.ticker-chip{background:rgba(0,196,180,.15);color:#00c4b4;border:1px solid #00c4b4;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;padding:1px 7px;margin-right:9px;text-transform:uppercase}
+.ticker-sep{color:#2a5a56;margin:0 24px}
+@keyframes tickerscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 .mplayed-lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#5fa89e}
 .mplayed-val{font-family:var(--F);font-size:20px;color:#00c4b4;letter-spacing:1px}
 .mplayed-tot{color:#5fa89e;font-size:16px}
@@ -577,6 +606,13 @@ function WorldCup({submissions, wcScores, wcScorers}) {
   const [lastRefresh, setLastRefresh] = useState("");
   const [teamStats, setTeamStats] = useState(wcScores || {});
   const [expandedEntry, setExpandedEntry] = useState(null);
+  const [ticker, setTicker] = useState([]);
+
+  const loadTicker = () => {
+    if (!TICKER_CSV_URL) return;
+    fetch(TICKER_CSV_URL).then(r => r.text()).then(t => setTicker(parseTicker(t))).catch(() => {});
+  };
+  useEffect(() => { loadTicker(); }, []);
 
   const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
   const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"odds",label:"Win Odds"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"fifa",label:"FIFA Standings"},{id:"goldenboot",label:"Golden Boot"},{id:"payouts",label:"Payouts"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
@@ -584,6 +620,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
 
   const refreshScores = () => {
     setApiLoading(true);
+    loadTicker();
     fetch(SCORES_CSV_URL)
       .then(r => r.text())
       .then(text => {
@@ -677,6 +714,22 @@ function WorldCup({submissions, wcScores, wcScorers}) {
           {isLocked ? <span className="blive">LIVE</span> : <span className="dbadge">Due: Jun 11 - 3PM</span>}
         </div>
       </div>
+      {ticker.length > 0 && (
+        <div className="ticker">
+          <div className="ticker-tag">UPDATES</div>
+          <div className="ticker-view">
+            <div className="ticker-track">
+              {[...ticker, ...ticker].map((t, i) => (
+                <span className="ticker-item" key={i}>
+                  {t.label && <span className="ticker-chip">{t.label}</span>}
+                  {t.msg}
+                  <span className="ticker-sep">◆</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="stabs">
         {tabs.map(s => <button key={s.id} className={"stab"+(sec===s.id?" on":"")} onClick={() => setSec(s.id)}>{s.label}</button>)}
       </div>
