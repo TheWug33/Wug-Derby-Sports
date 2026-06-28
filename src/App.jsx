@@ -773,11 +773,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                               <div style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</div>
                               {isExp && (
                                 <div style={{marginTop:8}}>
-                                  <div className="mplayed">
-                                    <span className="mplayed-lbl">Matches Played</span>
-                                    <span className="mplayed-val">{matchesPlayed(e)}<span className="mplayed-tot"> / {matchesTotal(e)}</span></span>
-                                  </div>
-                                  <div className="breakdown-grid">
+                                 <div className="breakdown-grid">
                                   {WC_GROUPS.map(g => {
                                     const bd = e.breakdown["group"+g.group];
                                     return (
