@@ -7,7 +7,7 @@ const SUBS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3
 const SCORES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1428642588&single=true&output=csv";
 const SCORERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1371890124&single=true&output=csv";
 // TICKER: paste the published-CSV URL of your new "Ticker" sheet tab here (same Publish-to-web format as the lines above). Leave "" to hide the ticker.
-const TICKER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=34188118&single=true&output=csv";
+const TICKER_CSV_URL = "";
 const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
 const DEADLINE = new Date("2026-06-11T15:00:00");
 
@@ -263,6 +263,7 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .elim{text-decoration:line-through;text-decoration-color:#e84545;text-decoration-thickness:2px;color:#5fa89e}
 .grow.elim{color:#5fa89e}
 .outtag{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;background:rgba(232,69,69,.12);color:#e84545;border:1px solid #e84545;vertical-align:middle;text-decoration:none}
+.gown{flex-shrink:0;font-size:12px;font-weight:600;color:#00c4b4}
 .srow{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #111}.srow:last-child{border-bottom:none}
 .spts{font-family:var(--F);font-size:22px;color:#00c4b4}
 .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -773,7 +774,11 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                               <div style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</div>
                               {isExp && (
                                 <div style={{marginTop:8}}>
-                                 <div className="breakdown-grid">
+                                  <div className="mplayed">
+                                    <span className="mplayed-lbl">Matches Played</span>
+                                    <span className="mplayed-val">{matchesPlayed(e)}<span className="mplayed-tot"> / {matchesTotal(e)}</span></span>
+                                  </div>
+                                  <div className="breakdown-grid">
                                   {WC_GROUPS.map(g => {
                                     const bd = e.breakdown["group"+g.group];
                                     return (
@@ -895,8 +900,9 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                   {g.multiplier===2?<span className="m2x">2x DOUBLE</span>:g.multiplier===3?<span className="m3x">3x TRIPLE</span>:<span className="m1x">1x</span>}
                 </div>
                 {g.teams.map(t => (
-                  <div key={t} className={"grow"+(isOut(t)?" elim":"")}>
-                    {t}{isOut(t)&&<span className="outtag">OUT</span>}
+                  <div key={t} className="grow" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <span><span className={isOut(t)?"elim":""}>{t}</span>{isOut(t)&&<span className="outtag">OUT</span>}</span>
+                    <span className="gown">{ownPct(t)}%</span>
                   </div>
                 ))}
               </div>
