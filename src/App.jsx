@@ -717,7 +717,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
       </div>
       {ticker.length > 0 && (
         <div className="ticker">
-          <div className="ticker-tag">UPDATES</div>
+          <div className="ticker-tag">THE CRAWL</div>
           <div className="ticker-view">
             <div className="ticker-track">
               {[...ticker, ...ticker].map((t, i) => (
