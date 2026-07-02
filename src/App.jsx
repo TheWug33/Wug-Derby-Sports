@@ -7,6 +7,8 @@ const APRIL_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx
 const SUBS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=972756262&single=true&output=csv";
 const SCORES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1428642588&single=true&output=csv";
 const SCORERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=1371890124&single=true&output=csv";
+// TICKER: paste the published-CSV URL of your new "Ticker" sheet tab here (same Publish-to-web format as the lines above). Leave "" to hide the ticker.
+const TICKER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=34188118&single=true&output=csv";
 const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
 const DEADLINE = new Date("2026-06-11T15:00:00");
 
@@ -107,11 +109,14 @@ function parseScores(text) {
     const cells = row.split(",");
     const team = cells[0]?.trim();
     if (!team) return;
+    const elim = (cells[5] || "").trim().toLowerCase();
     stats[team] = {
       goals: parseInt(cells[1]) || 0,
       wins: parseInt(cells[2]) || 0,
       draws: parseInt(cells[3]) || 0,
       bonus: parseInt(cells[4]) || 0,
+      eliminated: elim === "x" || elim === "out" || elim === "yes" || elim === "true" || elim === "1",
+      played: parseInt(cells[6]) || 0,
     };
   });
   return stats;
@@ -129,6 +134,24 @@ function parseScorers(text) {
     scorers.push({player, goals, team});
   });
   return scorers.sort((a,b) => b.goals - a.goals);
+}
+
+function parseTicker(text) {
+  const out = [];
+  text.split("\n").forEach((r, idx) => {
+    if (idx === 0) return; // skip header row
+    const cells = []; let cur = ""; let inQ = false;
+    for (let c of r) {
+      if (c === '"') inQ = !inQ;
+      else if (c === "," && !inQ) { cells.push(cur.trim()); cur = ""; }
+      else cur += c;
+    }
+    cells.push(cur.trim());
+    const msg = (cells[0] || "").trim();
+    if (!msg) return;
+    out.push({ msg, label: (cells[1] || "").trim() });
+  });
+  return out;
 }
 
 function calcScore(entry, teamStats) {
@@ -238,6 +261,10 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .gchdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;background:#0a1a1a;border-bottom:2px solid #fff}
 .gname{font-family:var(--F);font-size:18px;letter-spacing:1px;color:#00c4b4}
 .grow{padding:8px 16px;font-size:14px;border-bottom:1px solid #111;color:#fff}.grow:last-child{border-bottom:none}
+.elim{text-decoration:line-through;text-decoration-color:#e84545;text-decoration-thickness:2px;color:#5fa89e}
+.grow.elim{color:#5fa89e}
+.outtag{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;background:rgba(232,69,69,.12);color:#e84545;border:1px solid #e84545;vertical-align:middle;text-decoration:none}
+.gown{flex-shrink:0;font-size:12px;font-weight:600;color:#00c4b4}
 .srow{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #111}.srow:last-child{border-bottom:none}
 .spts{font-family:var(--F);font-size:22px;color:#00c4b4}
 .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -320,6 +347,27 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .ec-hdr{padding:12px 16px;background:#0a1a1a;border-bottom:2px solid #fff;display:flex;align-items:center;justify-content:space-between}
 .ec-name{font-family:var(--F);font-size:16px;letter-spacing:1px;color:#fff}
 .breakdown-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;padding:12px}
+.mplayed{display:flex;align-items:center;justify-content:space-between;margin:0 12px 4px;padding:8px 14px;background:rgba(0,196,180,.06);border:1px solid #1a3a3a;border-radius:6px}
+.oddsbanner{background:#0a1a1a;border:2px solid #fff;border-left:5px solid #00c4b4;border-radius:8px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#5fa89e;line-height:1.7}
+.oddsrow{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid #111}.oddsrow:last-child{border-bottom:none}
+.oddsname{font-weight:600;font-size:15px;color:#fff}
+.oddsentry{font-size:11px;color:#5fa89e;margin-left:8px;font-weight:400}
+.oddsmeta{font-size:12px;color:#5fa89e;margin:3px 0 7px}
+.oddsbar{height:7px;background:#0f2424;border:1px solid #1a3a3a;border-radius:4px;overflow:hidden}
+.oddsfill{height:100%;background:linear-gradient(90deg,#00a89a,#00e5d4);border-radius:4px;transition:width .3s}
+.oddspct{font-family:var(--F);font-size:26px;color:#00c4b4;letter-spacing:1px;min-width:64px;text-align:right}
+.ticker{display:flex;align-items:stretch;background:#0a1414;border:1px solid #1a3a3a;border-radius:8px;overflow:hidden;margin-bottom:16px}
+.ticker-tag{flex-shrink:0;display:flex;align-items:center;padding:0 16px;background:#00c4b4;color:#001a18;font-family:var(--F);letter-spacing:2px;font-size:14px}
+.ticker-view{overflow:hidden;flex:1;display:flex;align-items:center}
+.ticker-track{display:inline-flex;align-items:center;white-space:nowrap;animation:tickerscroll 38s linear infinite}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker-item{display:inline-flex;align-items:center;color:#cfeae7;font-size:14px;padding:11px 0}
+.ticker-chip{background:rgba(0,196,180,.15);color:#00c4b4;border:1px solid #00c4b4;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;padding:1px 7px;margin-right:9px;text-transform:uppercase}
+.ticker-sep{color:#2a5a56;margin:0 24px}
+@keyframes tickerscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.mplayed-lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#5fa89e}
+.mplayed-val{font-family:var(--F);font-size:20px;color:#00c4b4;letter-spacing:1px}
+.mplayed-tot{color:#5fa89e;font-size:16px}
 .breakdown-cell{background:#000;border:1px solid #1a3a3a;border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between}
 `;
 
@@ -560,13 +608,21 @@ function WorldCup({submissions, wcScores, wcScorers}) {
   const [lastRefresh, setLastRefresh] = useState("");
   const [teamStats, setTeamStats] = useState(wcScores || {});
   const [expandedEntry, setExpandedEntry] = useState(null);
+  const [ticker, setTicker] = useState([]);
+
+  const loadTicker = () => {
+    if (!TICKER_CSV_URL) return;
+    fetch(TICKER_CSV_URL).then(r => r.text()).then(t => setTicker(parseTicker(t))).catch(() => {});
+  };
+  useEffect(() => { loadTicker(); }, []);
 
   const preTabs = [{id:"enter",label:"Submit Entry"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
-  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"fifa",label:"FIFA Standings"},{id:"goldenboot",label:"Golden Boot"},{id:"payouts",label:"Payouts"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
+  const liveTabs = [{id:"leaderboard",label:"Leaderboard"},{id:"odds",label:"Win Odds"},{id:"entries",label:"All Entries"},{id:"groups",label:"Pool Groups"},{id:"fifa",label:"FIFA Standings"},{id:"goldenboot",label:"Golden Boot"},{id:"payouts",label:"Payouts"},{id:"scoring",label:"Scoring"},{id:"rules",label:"Rules"}];
   const tabs = isLocked ? liveTabs : preTabs;
 
   const refreshScores = () => {
     setApiLoading(true);
+    loadTicker();
     fetch(SCORES_CSV_URL)
       .then(r => r.text())
       .then(text => {
@@ -597,6 +653,55 @@ function WorldCup({submissions, wcScores, wcScorers}) {
     return counts;
   })();
   const ownPct = (team) => submissions.length ? Math.round((ownership[team]||0)/submissions.length*100) : 0;
+  const isOut = (team) => !!(team && teamStats[team] && teamStats[team].eliminated);
+  const matchesPlayed = (entry) => {
+    let n = 0;
+    for (let g = 1; g <= 12; g++) {
+      const team = entry["group"+g] || "";
+      if (team && teamStats[team]) n += (teamStats[team].played || 0);
+    }
+    return n;
+  };
+  const matchesTotal = (entry) => {
+    let t = 0;
+    for (let g = 1; g <= 12; g++) if (entry["group"+g]) t += 3;
+    return t;
+  };
+
+  // Auto team strength (0-1) from live tournament form: results weighted heavier than goals.
+  const teamStrength = (team) => {
+    const s = teamStats[team];
+    if (!s) return 0;
+    const gp = Math.max(s.played || 0, 1);
+    const ppg = ((s.wins||0)*3 + (s.draws||0)) / gp;     // 0..3
+    const gpg = (s.goals||0) / gp;                        // ~0..3
+    const strength = 0.6*(ppg/3) + 0.4*Math.min(gpg/3, 1);
+    return Math.max(0.05, Math.min(1, strength));
+  };
+
+  // Projected pool finish = points banked + upside from each still-alive team (strength x pool multiplier).
+  const FWD_K = 40;
+  const getOdds = () => {
+    const rows = submissions.map(entry => {
+      const { total } = calcScore(entry, teamStats);
+      let forward = 0, alive = 0;
+      for (let g = 1; g <= 12; g++) {
+        const team = entry["group"+g] || "";
+        if (!team) continue;
+        const st = teamStats[team];
+        if (st && !st.eliminated) {
+          alive++;
+          const mult = g >= 10 ? 3 : g >= 6 ? 2 : 1;
+          forward += teamStrength(team) * mult * FWD_K;
+        }
+      }
+      return { entry, current: total, alive, projected: total + forward };
+    });
+    const P = 3;
+    const denom = rows.reduce((a,r) => a + Math.pow(Math.max(r.projected,0), P), 0) || 1;
+    rows.forEach(r => { r.winPct = Math.pow(Math.max(r.projected,0), P) / denom * 100; });
+    return rows.sort((a,b) => b.projected - a.projected);
+  };
 
   return (
     <div>
@@ -611,6 +716,22 @@ function WorldCup({submissions, wcScores, wcScorers}) {
           {isLocked ? <span className="blive">LIVE</span> : <span className="dbadge">Due: Jun 11 - 3PM</span>}
         </div>
       </div>
+      {ticker.length > 0 && (
+        <div className="ticker">
+          <div className="ticker-tag">THE CRAWL</div>
+          <div className="ticker-view">
+            <div className="ticker-track">
+              {[...ticker, ...ticker].map((t, i) => (
+                <span className="ticker-item" key={i}>
+                  {t.label && <span className="ticker-chip">{t.label}</span>}
+                  {t.msg}
+                  <span className="ticker-sep">◆</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="stabs">
         {tabs.map(s => <button key={s.id} className={"stab"+(sec===s.id?" on":"")} onClick={() => setSec(s.id)}>{s.label}</button>)}
       </div>
@@ -653,14 +774,19 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                             <td>
                               <div style={{fontWeight:500}}>{e.name}{(e.entryNumber||1)>1&&<span style={{fontSize:11,color:"#5fa89e",marginLeft:8}}>Entry {e.entryNumber}</span>}</div>
                               {isExp && (
-                                <div className="breakdown-grid" style={{marginTop:8}}>
+                                <div style={{marginTop:8}}>
+                                  <div className="mplayed">
+                                    <span className="mplayed-lbl">Matches Played</span>
+                                    <span className="mplayed-val">{matchesPlayed(e)}<span className="mplayed-tot"> / {matchesTotal(e)}</span></span>
+                                  </div>
+                                  <div className="breakdown-grid">
                                   {WC_GROUPS.map(g => {
                                     const bd = e.breakdown["group"+g.group];
                                     return (
                                       <div key={g.group} className="breakdown-cell">
                                         <div>
                                           <div style={{fontSize:10,color:"#5fa89e",letterSpacing:1}}>GROUP {g.group}{g.multiplier>1?" - "+g.multiplier+"x":""}</div>
-                                          <div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{bd?bd.team:"—"}{bd&&bd.team&&<span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(bd.team)}%</span>}</div>
+                                          <div style={{fontSize:13,fontWeight:600,color:"#fff"}}><span className={bd&&isOut(bd.team)?"elim":""}>{bd?bd.team:"—"}</span>{bd&&bd.team&&isOut(bd.team)&&<span className="outtag">OUT</span>}{bd&&bd.team&&<span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(bd.team)}%</span>}</div>
                                         </div>
                                         <span style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4"}}>{bd?bd.scored:0}</span>
                                       </div>
@@ -669,6 +795,7 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                                   <div className="breakdown-cell" style={{border:"1px solid #00c4b4"}}>
                                     <span style={{fontSize:12,color:"#5fa89e"}}>Golden Boot</span>
                                     <span style={{fontSize:12,fontWeight:600,color:"#fff"}}>{e.goldenBoot||"—"}</span>
+                                  </div>
                                   </div>
                                 </div>
                               )}
@@ -679,6 +806,39 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                       })}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {sec==="odds" && (
+        <div>
+          <div className="oddsbanner">
+            Live projection of who's most likely to win the pool — based on points already banked, how many of each roster's teams are still alive, and each surviving team's current form (with your 2x/3x pool multipliers applied). This is a model estimate, not betting odds.
+          </div>
+          {submissions.length === 0 ? (
+            <div className="card"><div style={{padding:40,textAlign:"center",color:"#5fa89e"}}>No entries yet.</div></div>
+          ) : (() => {
+            const odds = getOdds();
+            const top = odds.slice(0,5);
+            const maxPct = top.length ? (top[0].winPct || 1) : 1;
+            return (
+              <div className="card">
+                <div className="chdr">Live Win Odds - Top 5 <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"#5fa89e",fontWeight:400}}>Updates with results</span></div>
+                <div style={{padding:"6px 0"}}>
+                  {top.map((r,i) => (
+                    <div key={i} className="oddsrow">
+                      <RB rank={i+1}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div className="oddsname">{r.entry.name}{(r.entry.entryNumber||1)>1 && <span className="oddsentry">Entry {r.entry.entryNumber}</span>}</div>
+                        <div className="oddsmeta">Now {r.current} · Proj {Math.round(r.projected)} · {r.alive}/12 alive</div>
+                        <div className="oddsbar"><div className="oddsfill" style={{width:Math.max(4,(r.winPct/maxPct*100))+"%"}}/></div>
+                      </div>
+                      <div className="oddspct">{r.winPct.toFixed(1)}%</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -707,7 +867,8 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                         <div key={g.group} style={{display:"flex",justifyContent:"space-between",padding:"4px 14px",borderBottom:"1px solid #111",fontSize:12}}>
                           <span style={{color:"#5fa89e"}}>Group {g.group}{g.multiplier>1?" ("+g.multiplier+"x)":""}</span>
                           <span style={{fontWeight:600,color:"#fff"}}>
-                            {team||"—"}
+                            <span className={isOut(team)?"elim":""}>{team||"—"}</span>
+                            {team && isOut(team) && <span className="outtag">OUT</span>}
                             {team && <span style={{fontSize:10,color:"#5fa89e",marginLeft:6,fontWeight:400}}>{ownPct(team)}% owned</span>}
                           </span>
                         </div>
@@ -739,7 +900,12 @@ function WorldCup({submissions, wcScores, wcScorers}) {
                   <span className="gname">Pool Group {g.group}</span>
                   {g.multiplier===2?<span className="m2x">2x DOUBLE</span>:g.multiplier===3?<span className="m3x">3x TRIPLE</span>:<span className="m1x">1x</span>}
                 </div>
-                {g.teams.map(t => <div key={t} className="grow">{t}</div>)}
+                {g.teams.map(t => (
+                  <div key={t} className="grow" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <span><span className={isOut(t)?"elim":""}>{t}</span>{isOut(t)&&<span className="outtag">OUT</span>}</span>
+                    <span className="gown">{ownPct(t)}%</span>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
