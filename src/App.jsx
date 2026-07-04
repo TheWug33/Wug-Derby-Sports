@@ -364,6 +364,12 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .ticker-item{display:inline-flex;align-items:center;color:#cfeae7;font-size:14px;padding:11px 0}
 .ticker-chip{background:rgba(0,196,180,.15);color:#00c4b4;border:1px solid #00c4b4;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:1px;padding:1px 7px;margin-right:9px;text-transform:uppercase}
 .ticker-sep{color:#2a5a56;margin:0 24px}
+.july4-banner{background:linear-gradient(90deg,#b22234 0%,#b22234 33%,#ffffff 33%,#ffffff 66%,#3c3b6e 66%,#3c3b6e 100%);padding:2px;border-radius:8px;margin-bottom:16px}
+.july4-inner{background:#000;border-radius:6px;padding:12px 20px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;text-align:center}
+.july4-title{font-family:var(--F);font-size:24px;letter-spacing:2px;background:linear-gradient(90deg,#e84545,#ffffff,#3b6cff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#fff}
+.july4-sub{font-size:13px;color:#5fa89e}
+.july4-star{font-size:20px;animation:twinkle 1.5s infinite alternate}
+@keyframes twinkle{from{opacity:.4;transform:scale(.9)}to{opacity:1;transform:scale(1.15)}}
 @keyframes tickerscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 .mplayed-lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#5fa89e}
 .mplayed-val{font-family:var(--F);font-size:20px;color:#00c4b4;letter-spacing:1px}
@@ -1358,6 +1364,75 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   );
 }
 
+// ── JULY 4TH FIREWORKS ────────────────────────────────────────────────────────
+function isJuly4() {
+  const d = new Date();
+  return d.getMonth() === 6 && d.getDate() === 4;
+}
+
+function Fireworks() {
+  const ref = (node) => { if (node) startFireworks(node); };
+  return <canvas ref={ref} style={{position:"fixed",top:0,left:0,width:"100vw",height:"100vh",pointerEvents:"none",zIndex:9999}}/>;
+}
+
+function startFireworks(canvas) {
+  if (canvas._started) return;
+  canvas._started = true;
+  const ctx = canvas.getContext("2d");
+  let W = canvas.width = window.innerWidth;
+  let H = canvas.height = window.innerHeight;
+  const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+  window.addEventListener("resize", onResize);
+  const COLORS = ["#e84545","#ffffff","#3b6cff","#00c4b4","#ffd700"];
+  const particles = [];
+  const rockets = [];
+  function launch() {
+    rockets.push({x:Math.random()*W,y:H,tx:W*0.2+Math.random()*W*0.6,ty:H*0.15+Math.random()*H*0.35,vy:-(8+Math.random()*3),color:COLORS[Math.floor(Math.random()*COLORS.length)]});
+  }
+  function burst(x,y,color) {
+    const n = 60 + Math.floor(Math.random()*40);
+    for (let i=0;i<n;i++){
+      const ang = (Math.PI*2*i)/n;
+      const spd = 1.5 + Math.random()*4;
+      particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,life:1,color:Math.random()<0.3?"#ffffff":color,size:1.5+Math.random()*1.5});
+    }
+  }
+  let frame = 0;
+  let raf;
+  function tick(){
+    ctx.fillStyle = "rgba(0,0,0,0.18)";
+    ctx.fillRect(0,0,W,H);
+    frame++;
+    if (frame % 32 === 0) launch();
+    for (let i=rockets.length-1;i>=0;i--){
+      const r = rockets[i];
+      r.x += (r.tx-r.x)*0.02;
+      r.y += r.vy;
+      r.vy += 0.06;
+      ctx.beginPath();
+      ctx.arc(r.x,r.y,2.2,0,Math.PI*2);
+      ctx.fillStyle = r.color;
+      ctx.fill();
+      if (r.y <= r.ty || r.vy >= 0){ burst(r.x,r.y,r.color); rockets.splice(i,1); }
+    }
+    for (let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.045; p.vx *= 0.99; p.life -= 0.012;
+      if (p.life <= 0){ particles.splice(i,1); continue; }
+      ctx.globalAlpha = Math.max(p.life,0);
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    raf = requestAnimationFrame(tick);
+  }
+  tick();
+  // Auto-stop after 20 seconds to keep it tasteful and free resources
+  setTimeout(() => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); ctx.clearRect(0,0,W,H); canvas.style.display="none"; }, 20000);
+}
+
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("dashboard");
@@ -1394,10 +1469,11 @@ export default function App() {
   return (
     <>
       <style>{S}</style>
+      {isJuly4() && <Fireworks/>}
       <div>
         <header className="hdr">
           <div className="logo" style={{cursor:"pointer"}} onClick={()=>setTab("dashboard")}>WUG DERBY<span> POOLS</span></div>
-          <div style={{fontSize:13,color:"#5fa89e"}}>{new Date()>=DEADLINE?<span style={{color:"#e84545",fontWeight:700}}>TOURNAMENT LIVE</span>:"Wug Derby Pools - 2026"}</div>
+          <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:new Date()>=DEADLINE?<span style={{color:"#e84545",fontWeight:700}}>TOURNAMENT LIVE</span>:"Wug Derby Pools - 2026"}</div>
         </header>
         <nav className="nav">
           {[{id:"dashboard",label:"Dashboard"},{id:"hr",label:"HR Derby"},{id:"wc",label:"World Cup"}].map(t=>(
@@ -1405,6 +1481,18 @@ export default function App() {
           ))}
         </nav>
         <main className="main">
+          {isJuly4() && (
+            <div className="july4-banner">
+              <div className="july4-inner">
+                <span className="july4-star">⭐</span>
+                <div>
+                  <div className="july4-title">HAPPY 4TH OF JULY</div>
+                  <div className="july4-sub">Celebrating in the USA - host of World Cup 2026</div>
+                </div>
+                <span className="july4-star">⭐</span>
+              </div>
+            </div>
+          )}
           {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} submissions={submissions} wcScores={wcScores}/>}
           {tab==="hr" && <HRDerby allData={allData}/>}
           {tab==="wc" && <WorldCup submissions={submissions} wcScores={wcScores} wcScorers={wcScorers}/>}
