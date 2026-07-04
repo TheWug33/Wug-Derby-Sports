@@ -1430,7 +1430,7 @@ function startFireworks(canvas) {
   }
   tick();
   // Auto-stop after 20 seconds to keep it tasteful and free resources
-  setTimeout(() => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); ctx.clearRect(0,0,W,H); canvas.style.display="none"; }, 5000);
+  setTimeout(() => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); ctx.clearRect(0,0,W,H); canvas.style.display="none"; }, 7000);
 }
 
 // ── APP ───────────────────────────────────────────────────────────────────────
