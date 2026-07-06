@@ -1291,9 +1291,12 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
 
   return (
     <div>
-      <div style={{marginBottom:28}}>
-        <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:3,marginBottom:6}}>ACTIVE POOLS</div>
-        <div className="updated"><span className="live-dot"/>Live data - Updated {updatedAt}</div>
+      <div style={{marginBottom:28,display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:3,marginBottom:6}}>ACTIVE POOLS</div>
+          <div className="updated"><span className="live-dot"/>Live data - Updated {updatedAt}</div>
+        </div>
+        <img src="/wugderby-logo.png" alt="Wug Derby Pools" style={{height:96,width:"auto",opacity:0.96,flexShrink:0}}/>
       </div>
       <div className="dgrid">
         <div className="dc" onClick={()=>setTab("hr")}>
@@ -1430,7 +1433,7 @@ function startFireworks(canvas) {
   }
   tick();
   // Auto-stop after 20 seconds to keep it tasteful and free resources
-  setTimeout(() => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); ctx.clearRect(0,0,W,H); canvas.style.display="none"; }, 7000);
+  setTimeout(() => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); ctx.clearRect(0,0,W,H); canvas.style.display="none"; }, 20000);
 }
 
 // ── APP ───────────────────────────────────────────────────────────────────────
