@@ -231,6 +231,11 @@ body{background:#000;color:#fff;font-family:var(--B);min-height:100vh}
 .nav{display:flex;gap:4px;padding:16px 24px 0;border-bottom:2px solid #fff;background:#000;overflow-x:auto}
 .ntab{padding:10px 20px 12px;border:none;background:transparent;color:#5fa89e;font-family:var(--F);font-size:18px;letter-spacing:1px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap}
 .ntab:hover{color:#fff}.ntab.on{color:#00c4b4;border-bottom-color:#fff}
+@media(max-width:640px){
+.nav{padding:12px 8px 0;gap:0;overflow-x:hidden}
+.ntab{flex:1 1 0;padding:8px 2px 10px;font-size:15px;letter-spacing:.5px;text-align:center}
+}
+.dgrid-label{font-family:var(--F);font-size:22px;letter-spacing:3px;color:#5fa89e;margin:4px 0 14px}
 .main{padding:24px;max-width:1200px;margin:0 auto}
 .phdr{background:#000;border:2px solid #fff;border-left:5px solid #00c4b4;border-radius:8px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
 .ptitle{font-family:var(--F);font-size:32px;letter-spacing:2px;color:#00c4b4}
@@ -1336,6 +1341,9 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </div>
           <button className="dcta">{isLocked?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
         </div>
+      </div>
+      <div className="dgrid-label">ON DECK</div>
+      <div className="dgrid">
         <div className="dc dc-coming" onClick={()=>setTab("nfl")}>
           <div className="dc-ribbon">COMING SOON</div>
           <div className="dctop">
