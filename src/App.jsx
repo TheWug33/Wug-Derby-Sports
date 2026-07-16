@@ -1507,7 +1507,7 @@ function NFLComingSoon() {
         <div style={{fontSize:56,marginBottom:12}}>🏈</div>
         <div className="nfl-hero-title">NFL DERBY POOL</div>
         <div className="nfl-hero-sub">
-          The next Wug Derby pool kicks off with the 2026 NFL season.
+          The next Wug Derby Pool kicks off with the 2026 NFL season.
           Player pools and pick sheets are being built now and will be posted here soon.
         </div>
         <div style={{marginTop:22,fontSize:13,color:"#5fa89e",letterSpacing:2}}>PICKS DUE WEDNESDAY, SEPT 9 - 8:00 PM ET</div>
@@ -1523,7 +1523,7 @@ function NFLComingSoon() {
             </div>
           ))}
           <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #1e3a36",fontSize:13}}>
-            Full rules, player pools, and other information will be posted before picks open.
+            Full rules, player pools, and other information will be posted here soon.
             The more teams that sign up, the bigger the pot. Check back here for updates.
           </div>
         </div>
