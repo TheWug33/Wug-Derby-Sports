@@ -1523,8 +1523,8 @@ function NFLComingSoon() {
             </div>
           ))}
           <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #1e3a36",fontSize:13}}>
-            Full rules, player pools, and the submission form will be posted before picks open.
-            The more teams that sign up, the bigger the pot. Watch The Crawl for updates.
+            Full rules, player pools, and other information will be posted before picks open.
+            The more teams that sign up, the bigger the pot. Check back here for updates.
           </div>
         </div>
       </div>
