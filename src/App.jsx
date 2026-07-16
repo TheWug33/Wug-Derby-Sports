@@ -11,6 +11,7 @@ const SCORERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdO
 const TICKER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=34188118&single=true&output=csv";
 const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
 const DEADLINE = new Date("2026-06-11T15:00:00");
+const NFL_DEADLINE = new Date("2026-09-09T20:00:00-04:00");
 
 function parseCSV(text) {
   const rows = text.split("\n").map(r => {
@@ -286,6 +287,15 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .dbadge{display:inline-flex;align-items:center;gap:6px;background:rgba(232,69,69,.12);border:1px solid #e84545;color:#e84545;border-radius:4px;padding:4px 10px;font-size:12px;font-weight:600}
 .blive{background:rgba(0,229,212,.15);color:#00e5d4;border:1px solid #00e5d4;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;letter-spacing:1px}
 .bsoon{background:rgba(0,196,180,.15);color:#00c4b4;border:1px solid #fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700}
+.bcome{background:rgba(255,215,0,.12);color:#ffd700;border:1px solid #ffd700;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;letter-spacing:1px}
+.dc-coming{position:relative}
+.dc-coming .dcbody,.dc-coming .dctop{opacity:.55}
+.dc-ribbon{position:absolute;top:18px;right:-42px;transform:rotate(38deg);background:#ffd700;color:#000;font-family:var(--F);font-size:15px;letter-spacing:2px;font-weight:700;padding:4px 48px;z-index:2;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.dcta-coming{background:#1a1a1a;color:#ffd700;border-top:2px solid #ffd700}
+.dcta-coming:hover{background:#262626}
+.nfl-hero{background:#000;border:2px solid #ffd700;border-radius:10px;padding:48px 24px;text-align:center;margin-bottom:24px}
+.nfl-hero-title{font-family:var(--F);font-size:44px;letter-spacing:4px;color:#ffd700;margin-bottom:8px}
+.nfl-hero-sub{color:#5fa89e;font-size:15px;max-width:520px;margin:0 auto;line-height:1.6}
 .swapb{font-size:10px;background:rgba(0,196,180,.15);color:#00c4b4;border:1px solid #00c4b4;border-radius:3px;padding:1px 5px;margin-left:6px;font-weight:700}
 .lbar{height:4px;background:#111;border-radius:2px;margin-top:4px;overflow:hidden}
 .lfill{height:100%;border-radius:2px;background:#00c4b4}
@@ -1326,6 +1336,21 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </div>
           <button className="dcta">{isLocked?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
         </div>
+        <div className="dc dc-coming" onClick={()=>setTab("nfl")}>
+          <div className="dc-ribbon">COMING SOON</div>
+          <div className="dctop">
+            <div className="dico">🏈</div>
+            <div><div className="dctitle">NFL Derby Pool</div><div className="dcsub">2026 NFL Season</div></div>
+            <span className="bcome" style={{marginLeft:"auto"}}>SOON</span>
+          </div>
+          <div className="dcbody">
+            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">50 units</span></div>
+            <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Sep 9, 2026 - 8:00 PM ET</span></div>
+            <div className="dsr"><span className="dsl">Kickoff</span><span className="dsv">Sep 9 - SEA vs NE</span></div>
+            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#ffd700"}}>Player Pools In Progress</span></div>
+          </div>
+          <button className="dcta dcta-coming">VIEW RULES PREVIEW</button>
+        </div>
       </div>
       <div className="card">
         <div className="chdr">HR Derby - Season Top 5</div>
@@ -1436,6 +1461,69 @@ function startFireworks(canvas) {
   setTimeout(() => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); ctx.clearRect(0,0,W,H); canvas.style.display="none"; }, 20000);
 }
 
+// ── NFL DERBY COMING SOON ─────────────────────────────────────────────────────
+function NFLCountdown() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const diff = NFL_DEADLINE - now;
+  if (diff <= 0) return <div style={{fontFamily:"var(--F)",fontSize:28,letterSpacing:2,color:"#e84545"}}>PICKS ARE LOCKED</div>;
+  const d = Math.floor(diff/86400000), h = Math.floor(diff/3600000)%24, m = Math.floor(diff/60000)%60, s = Math.floor(diff/1000)%60;
+  const cell = (v,l) => (
+    <div key={l} style={{textAlign:"center",minWidth:64}}>
+      <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"#ffd700"}}>{String(v).padStart(2,"0")}</div>
+      <div style={{fontSize:11,color:"#5fa89e",letterSpacing:2}}>{l}</div>
+    </div>
+  );
+  return (
+    <div style={{display:"flex",gap:16,justifyContent:"center",marginTop:18}}>
+      {cell(d,"DAYS")}{cell(h,"HRS")}{cell(m,"MIN")}{cell(s,"SEC")}
+    </div>
+  );
+}
+
+function NFLComingSoon() {
+  const rows = [
+    ["Roster","2 Team QBs, 2 Team Kickers, 6 WR/RB/TEs, plus 1 designated Swap Player"],
+    ["Salary Cap","146 total - player salaries equal their prior-season TD totals"],
+    ["Swap Player","One swap allowed before Week 9 kicks off. Swap-in cannot push you over the cap. Team QBs and Team Kickers cannot be swapped. Once you swap, your roster locks for the season."],
+    ["Scoring","Offensive TDs = 6 pts (rush/receive/pass). Field goals = 3 pts. Extra points, special teams, and defensive TDs do not count."],
+    ["Pay Periods","Weeks 1-4, 5-8, 9-13, 14-18, plus Overall Cumulative (Weeks 1-18)"],
+    ["Entry","50 units - payment due by Week 2 or your team is removed"],
+  ];
+  return (
+    <div>
+      <div className="nfl-hero">
+        <div style={{fontSize:56,marginBottom:12}}>🏈</div>
+        <div className="nfl-hero-title">NFL DERBY POOL</div>
+        <div className="nfl-hero-sub">
+          The next Wug Derby pool kicks off with the 2026 NFL season.
+          Player pools and pick sheets are being built now and will be posted here soon.
+        </div>
+        <div style={{marginTop:22,fontSize:13,color:"#5fa89e",letterSpacing:2}}>PICKS DUE WEDNESDAY, SEPT 9 - 8:00 PM ET</div>
+        <NFLCountdown/>
+      </div>
+      <div className="card">
+        <div className="chdr">Rules Preview</div>
+        <div style={{padding:"16px 20px",color:"#5fa89e",fontSize:14,lineHeight:1.8}}>
+          {rows.map(r => (
+            <div key={r[0]} style={{marginBottom:12}}>
+              <span style={{color:"#ffd700",fontWeight:700}}>{r[0]}</span>
+              <span style={{color:"#8fc9c0"}}> — {r[1]}</span>
+            </div>
+          ))}
+          <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #1e3a36",fontSize:13}}>
+            Full rules, player pools, and the submission form will be posted before picks open.
+            The more teams that sign up, the bigger the pot. Watch The Crawl for updates.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("dashboard");
@@ -1479,7 +1567,7 @@ export default function App() {
           <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:new Date()>=DEADLINE?<span style={{color:"#e84545",fontWeight:700}}>TOURNAMENT LIVE</span>:"Wug Derby Pools - 2026"}</div>
         </header>
         <nav className="nav">
-          {[{id:"dashboard",label:"Dashboard"},{id:"hr",label:"HR Derby"},{id:"wc",label:"World Cup"}].map(t=>(
+          {[{id:"dashboard",label:"Dashboard"},{id:"hr",label:"HR Derby"},{id:"wc",label:"World Cup"},{id:"nfl",label:"NFL Derby"}].map(t=>(
             <button key={t.id} className={"ntab"+(tab===t.id?" on":"")} onClick={()=>setTab(t.id)}>{t.label}</button>
           ))}
         </nav>
@@ -1499,6 +1587,7 @@ export default function App() {
           {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} submissions={submissions} wcScores={wcScores}/>}
           {tab==="hr" && <HRDerby allData={allData}/>}
           {tab==="wc" && <WorldCup submissions={submissions} wcScores={wcScores} wcScorers={wcScorers}/>}
+          {tab==="nfl" && <NFLComingSoon/>}
         </main>
       </div>
     </>
