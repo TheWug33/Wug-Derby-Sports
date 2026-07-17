@@ -63,7 +63,9 @@ function parseCSV(text) {
         const team=currentTeams[gi];
         if (team && rosters[team]) {
           const mhr=v2!==""?parseInt(v2):null,shr=v3!==""?parseInt(v3):null;
-          rosters[team].players.push({name:v1.trim(),cap2025:parseInt(v0),month:mhr,season:shr,swap:mhr===null&&shr===null});
+          const out = /\(out\)\s*$/i.test(v1.trim());
+          const cleanName = v1.trim().replace(/\s*\(out\)\s*$/i, "").trim();
+          rosters[team].players.push({name:cleanName,cap2025:parseInt(v0),month:mhr,season:shr,swap:!out&&mhr===null&&shr===null,out});
         }
       } else if (v1==="Total HRs" && !isNaN(parseInt(v0))) {
         const team=currentTeams[gi];
@@ -302,6 +304,7 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .nfl-hero-title{font-family:var(--F);font-size:44px;letter-spacing:4px;color:#ffd700;margin-bottom:8px}
 .nfl-hero-sub{color:#5fa89e;font-size:15px;max-width:520px;margin:0 auto;line-height:1.6}
 .swapb{font-size:10px;background:rgba(0,196,180,.15);color:#00c4b4;border:1px solid #00c4b4;border-radius:3px;padding:1px 5px;margin-left:6px;font-weight:700}
+.outb{font-size:10px;background:rgba(232,69,69,.15);color:#e84545;border:1px solid #e84545;border-radius:3px;padding:1px 5px;margin-left:6px;font-weight:700}
 .lbar{height:4px;background:#111;border-radius:2px;margin-top:4px;overflow:hidden}
 .lfill{height:100%;border-radius:2px;background:#00c4b4}
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
@@ -1232,10 +1235,11 @@ function HRDerby({allData}) {
                   <span style={{fontSize:10,color:"#5fa89e",textAlign:"right",minWidth:44,paddingLeft:10}}>Season</span>
                 </div>
                 {r.players.map((p,i) => (
-                  <div key={i} className="rpr" style={p.swap?{opacity:.65,background:"rgba(0,196,180,.03)"}:{}}>
+                  <div key={i} className="rpr" style={(p.swap||p.out)?{opacity:.65,background:p.out?"rgba(232,69,69,.05)":"rgba(0,196,180,.03)"}:{}}>
                     <div style={{flex:1,display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:13,fontWeight:p.swap?400:500}}>{p.name}</span>
+                      <span style={{fontSize:13,fontWeight:(p.swap||p.out)?400:500}}>{p.name}</span>
                       {p.swap && <span className="swapb">SWAP</span>}
+                      {p.out && <span className="outb">OUT</span>}
                     </div>
                     <span style={{fontSize:11,color:"#5fa89e",textAlign:"right",minWidth:36}}>{p.cap2025}</span>
                     <span style={{fontFamily:"var(--F)",fontSize:14,color:"#00c4b4",textAlign:"right",minWidth:40,paddingLeft:10}}>{p.month!=null?p.month:"—"}</span>
@@ -1507,7 +1511,7 @@ function NFLComingSoon() {
         <div style={{fontSize:56,marginBottom:12}}>🏈</div>
         <div className="nfl-hero-title">NFL DERBY POOL</div>
         <div className="nfl-hero-sub">
-          The next Wug Derby Pool kicks off with the 2026 NFL season.
+          The next Wug Derby pool kicks off with the 2026 NFL season.
           Player pools and pick sheets are being built now and will be posted here soon.
         </div>
         <div style={{marginTop:22,fontSize:13,color:"#5fa89e",letterSpacing:2}}>PICKS DUE WEDNESDAY, SEPT 9 - 8:00 PM ET</div>
@@ -1523,8 +1527,8 @@ function NFLComingSoon() {
             </div>
           ))}
           <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #1e3a36",fontSize:13}}>
-            Full rules, player pools, and other information will be posted here soon.
-            The more teams that sign up, the bigger the pot. Check back here for updates.
+            Full rules, player pools, and the submission form will be posted before picks open.
+            The more teams that sign up, the bigger the pot. Watch The Crawl for updates.
           </div>
         </div>
       </div>
