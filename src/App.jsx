@@ -708,6 +708,7 @@ function NFLEntryForm() {
   const [step, setStep] = useState("lookup");
   const [lookupName, setLookupName] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
   const [existingEntries, setExistingEntries] = useState([]);
@@ -742,6 +743,7 @@ function NFLEntryForm() {
     setK([entry.k1 || "", entry.k2 || ""]);
     setPlayers([1,2,3,4,5,6].map(i => entry["player"+i] || ""));
     setSwap(entry.swap || "");
+    setTeamName(entry.teamName || "");
   };
 
   const handleLookup = () => {
@@ -768,10 +770,12 @@ function NFLEntryForm() {
   };
 
   const handleChooseNew = () => {
-    setEntryNumber(2); setIsEditing(false);
-    setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap("");
+    setEntryNumber(existingEntries.length + 1); setIsEditing(false);
+    setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap(""); setTeamName("");
     setStep("form");
   };
+
+  const displayName = (teamName.trim() || lookupName.trim());
 
   const handleSubmit = () => {
     setError("");
@@ -783,6 +787,7 @@ function NFLEntryForm() {
     setSubmitting(true);
     const payload = {
       name: lookupName.trim(), email: lookupEmail.trim(), entryNumber,
+      teamName: teamName.trim(),
       qb1: qb[0], qb2: qb[1], k1: k[0], k2: k[1],
       player1: players[0], player2: players[1], player3: players[2],
       player4: players[3], player5: players[4], player6: players[5],
@@ -795,7 +800,7 @@ function NFLEntryForm() {
 
   const resetAll = () => {
     setStep("lookup"); setLookupEmail(""); setLookupName(""); setExistingEntries([]);
-    setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap("");
+    setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap(""); setTeamName("");
     setSubmitted(false); setError(""); setIsEditing(false);
   };
 
@@ -829,6 +834,7 @@ function NFLEntryForm() {
       <div className="success-sub">{isEditing ? `Entry ${entryNumber} updated, ${lookupName.split(" ")[0]}!` : `Submitted! Good luck ${lookupName.split(" ")[0]}!`}</div>
       <div className="picks-summary">
         <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"#00c4b4",marginBottom:12}}>YOUR ROSTER</div>
+        <div className="picks-summary-row"><span className="picks-summary-label">Shown On Site As</span><span className="picks-summary-value">{displayName}</span></div>
         <div className="picks-summary-row"><span className="picks-summary-label">Team QB 1</span><span className="picks-summary-value">{qb[0]}</span></div>
         <div className="picks-summary-row"><span className="picks-summary-label">Team QB 2</span><span className="picks-summary-value">{qb[1]}</span></div>
         <div className="picks-summary-row"><span className="picks-summary-label">Team Kicker 1</span><span className="picks-summary-value">{k[0]}</span></div>
@@ -883,13 +889,21 @@ function NFLEntryForm() {
           </div>
           {existingEntries.map((entry, i) => (
             <div key={i} style={{background:"#0a1a1a",border:"1px solid #fff",borderRadius:8,padding:16,marginBottom:12}}>
-              <div style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4",marginBottom:10,letterSpacing:1}}>ENTRY {entry.entryNumber || i+1}</div>
+              <div style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4",marginBottom:2,letterSpacing:1}}>
+                {entry.teamName ? entry.teamName : "ENTRY " + (entry.entryNumber || i+1)}
+              </div>
+              {entry.teamName && <div style={{fontSize:11,color:"#5fa89e",marginBottom:8}}>Entry {entry.entryNumber || i+1}</div>}
               <div style={{fontSize:12,color:"#5fa89e",marginBottom:12}}>
                 QB: {entry.qb1}, {entry.qb2} — K: {entry.k1}, {entry.k2} — Swap: {entry.swap || "—"}
               </div>
               <button className="submit-btn" style={{fontSize:16,padding:12}} onClick={() => handleChooseEdit(entry)}>EDIT THIS ENTRY</button>
             </div>
           ))}
+          {existingEntries.length < 2 ? (
+            <button className="submit-btn" style={{background:"#0a1a1a",color:"#00c4b4",borderColor:"#00c4b4",fontSize:16,padding:12,marginTop:8}} onClick={handleChooseNew}>+ SUBMIT A SECOND ENTRY</button>
+          ) : (
+            <div style={{textAlign:"center",fontSize:12,color:"#5fa89e",padding:"10px 0"}}>You've reached the 2-entry limit per person.</div>
+          )}
           <div style={{marginTop:12,textAlign:"center"}}>
             <button onClick={resetAll} style={{background:"transparent",border:"none",color:"#5fa89e",cursor:"pointer",fontSize:13,textDecoration:"underline"}}>Use a different email</button>
           </div>
@@ -910,6 +924,16 @@ function NFLEntryForm() {
           <div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>{lookupName} - {lookupEmail}</div>
         </div>
         <button onClick={() => setStep(existingEntries.length > 0 ? "choose" : "lookup")} style={{background:"transparent",border:"1px solid #5fa89e",borderRadius:4,color:"#5fa89e",cursor:"pointer",fontSize:12,padding:"4px 12px"}}>Back</button>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-hdr"><span>TEAM NAME <span style={{color:"#5fa89e",fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></span></div>
+        <div style={{padding:20}}>
+          <input className="form-input" placeholder="e.g. The Gridiron Gurus" value={teamName} onChange={e => setTeamName(e.target.value)} maxLength={40} />
+          <div style={{fontSize:12,color:"#5fa89e",marginTop:8}}>
+            This is what shows up on the site. Leave it blank and we'll just use your name ({lookupName || "your name"}) instead.
+          </div>
+        </div>
       </div>
 
       <CapBar/>
@@ -1726,7 +1750,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
             <span className={new Date()>=NFL_DEADLINE?"blive":"bsoon"} style={{marginLeft:"auto"}}>{new Date()>=NFL_DEADLINE?"LIVE":"OPEN"}</span>
           </div>
           <div className="dcbody">
-            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$50</span></div>
+            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">50 units</span></div>
             <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Sep 9, 2026 - 8:00 PM ET</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{new Date()>=NFL_DEADLINE?"Season Live":"Submissions Open"}</span></div>
           </div>
