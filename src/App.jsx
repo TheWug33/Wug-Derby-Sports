@@ -10,6 +10,9 @@ const SCORERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdO
 // TICKER: paste the published-CSV URL of your new "Ticker" sheet tab here (same Publish-to-web format as the lines above). Leave "" to hide the ticker.
 const TICKER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=34188118&single=true&output=csv";
 const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBKYuZ33i2aABv0SObw3l05bBjPFBpkBEWz19XM6Cnzozh0eN19Q/exec";
+// NFL Derby: paste the Apps Script Web App URL for a NEW Google Sheet tab here once set up (see chat notes).
+// Expected columns: timestamp, name, email, entryNumber, qb1, qb2, k1, k2, player1..player6, swap
+const NFL_SUBMIT_URL = "https://script.google.com/macros/s/AKfycbyhAit22Rp_L5z-yDunYnqLR5MocD4T7nfRWgWXy-oaUvBFJUFhpOs7RL6BSldjl4NE/exec";
 const DEADLINE = new Date("2026-06-11T15:00:00");
 const NFL_DEADLINE = new Date("2026-09-09T20:00:00-04:00");
 
@@ -223,6 +226,72 @@ const GOLDEN_BOOT_PLAYERS = [
   "Yoane Wissa","Brenden Aaronson","Lyle Foster","John McGinn",
 ];
 
+// ── NFL DERBY REFERENCE DATA (2026 season, salaries from 2025 stats) ──────────
+const NFL_QB_TEAMS = [
+  {team:"LA Rams",tds:46},{team:"Buffalo Bills",tds:43},{team:"Cincinnati Bengals",tds:38},
+  {team:"Jacksonville Jaguars",tds:38},{team:"San Francisco 49ers",tds:36},{team:"New England Patriots",tds:35},
+  {team:"Detroit Lions",tds:34},{team:"Philadelphia Eagles",tds:34},{team:"Dallas Cowboys",tds:33},
+  {team:"Indianapolis Colts",tds:32},{team:"Arizona Cardinals",tds:31},{team:"Chicago Bears",tds:30},
+  {team:"Denver Broncos",tds:30},{team:"NY Giants",tds:30},{team:"Green Bay Packers",tds:28},
+  {team:"Kansas City Chiefs",tds:28},{team:"LA Chargers",tds:28},{team:"Tampa Bay Buccaneers",tds:27},
+  {team:"Pittsburgh Steelers",tds:27},{team:"Carolina Panthers",tds:26},{team:"Houston Texans",tds:26},
+  {team:"Baltimore Ravens",tds:25},{team:"Seattle Seahawks",tds:25},{team:"Washington Commanders",tds:23},
+  {team:"Miami Dolphins",tds:23},{team:"Minnesota Vikings",tds:21},{team:"New Orleans Saints",tds:21},
+  {team:"Atlanta Falcons",tds:21},{team:"Las Vegas Raiders",tds:20},{team:"NY Jets",tds:19},
+  {team:"Tennessee Titans",tds:17},{team:"Cleveland Browns",tds:17},
+];
+
+const NFL_KICKER_TEAMS = [
+  {team:"Atlanta Falcons",pts:25},{team:"Dallas Cowboys",pts:25},{team:"Houston Texans",pts:25},
+  {team:"Indianapolis Colts",pts:25},{team:"Kansas City Chiefs",pts:25},{team:"LA Chargers",pts:25},
+  {team:"Minnesota Vikings",pts:25},{team:"San Francisco 49ers",pts:25},{team:"Tampa Bay Buccaneers",pts:25},
+  {team:"Baltimore Ravens",pts:25},{team:"Chicago Bears",pts:25},{team:"Jacksonville Jaguars",pts:25},
+  {team:"New Orleans Saints",pts:25},{team:"NY Jets",pts:25},{team:"Seattle Seahawks",pts:25},
+  {team:"Tennessee Titans",pts:25},{team:"Arizona Cardinals",pts:20},{team:"Denver Broncos",pts:20},
+  {team:"Green Bay Packers",pts:20},{team:"Las Vegas Raiders",pts:20},{team:"Miami Dolphins",pts:20},
+  {team:"Pittsburgh Steelers",pts:20},{team:"Washington Commanders",pts:20},{team:"Buffalo Bills",pts:20},
+  {team:"Carolina Panthers",pts:20},{team:"Cincinnati Bengals",pts:20},{team:"Cleveland Browns",pts:20},
+  {team:"Detroit Lions",pts:20},{team:"LA Rams",pts:20},{team:"New England Patriots",pts:20},
+  {team:"NY Giants",pts:20},{team:"Philadelphia Eagles",pts:20},
+];
+
+const NFL_PLAYER_POOL = [
+  {name:"Jonathan Taylor",team:"IND",tds:20},{name:"Jahmyr Gibbs",team:"DET",tds:18},{name:"Christian McCaffrey",team:"SF",tds:17},
+  {name:"Derrick Henry",team:"BAL",tds:16},{name:"Davante Adams",team:"LAR",tds:14},{name:"James Cook",team:"BUF",tds:14},
+  {name:"Josh Jacobs",team:"GB",tds:14},{name:"Travis Etienne",team:"NO",tds:13},{name:"Javonte Williams",team:"DAL",tds:13},
+  {name:"Kyren Williams",team:"LAR",tds:13},{name:"Zach Charbonnet",team:"SEA",tds:12},{name:"De'Von Achane",team:"MIA",tds:12},
+  {name:"RJ Harvey",team:"DEN",tds:12},{name:"Chase Brown",team:"CIN",tds:11},{name:"Tee Higgins",team:"CIN",tds:11},
+  {name:"Bijan Robinson",team:"ATL",tds:11},{name:"Dallas Goedert",team:"PHI",tds:11},{name:"Trey McBride",team:"ARI",tds:11},
+  {name:"Puka Nacua",team:"LAR",tds:11},{name:"Amon-Ra St. Brown",team:"DET",tds:11},{name:"TreVeyon Henderson",team:"NE",tds:10},
+  {name:"Ashton Jeanty",team:"LV",tds:10},{name:"Jaxon Smith-Njigba",team:"SEA",tds:10},{name:"D'Andre Swift",team:"CHI",tds:10},
+  {name:"Jauan Jennings",team:"MIN",tds:9},{name:"George Pickens",team:"DAL",tds:9},{name:"Kareem Hunt",team:"KC",tds:9},
+  {name:"Chris Olave",team:"NO",tds:9},{name:"Rhamondre Stevenson",team:"NE",tds:9},{name:"Saquon Barkley",team:"PHI",tds:9},
+  {name:"Jake Ferguson",team:"DAL",tds:8},{name:"David Montgomery",team:"HOU",tds:8},{name:"Tyler Allgeier",team:"ARI",tds:8},
+  {name:"Ja'Marr Chase",team:"CIN",tds:8},{name:"Jacory Croskey-Merritt",team:"WAS",tds:8},{name:"Kenneth Gainwell",team:"TB",tds:8},
+  {name:"Quentin Johnston",team:"LAC",tds:8},{name:"Colby Parkinson",team:"LAR",tds:8},{name:"Sean Tucker",team:"TB",tds:8},
+  {name:"Jaylen Warren",team:"PIT",tds:8},{name:"Brock Bowers",team:"LV",tds:7},{name:"Nico Collins",team:"HOU",tds:7},
+  {name:"Quinshon Judkins",team:"CLE",tds:7},{name:"Drake London",team:"ATL",tds:7},{name:"Michael Pittman Jr.",team:"PIT",tds:7},
+  {name:"Cam Skattebo",team:"NYG",tds:7},{name:"Courtland Sutton",team:"DEN",tds:7},{name:"AJ Barner",team:"SEA",tds:7},
+  {name:"AJ Brown",team:"NE",tds:7},{name:"Rico Dowdle",team:"PIT",tds:7},{name:"Harold Fannin",team:"CLE",tds:7},
+  {name:"Hunter Henry",team:"NE",tds:7},{name:"George Kittle",team:"SF",tds:7},{name:"Tetairoa McMillan",team:"CAR",tds:7},
+  {name:"DK Metcalf",team:"PIT",tds:7},{name:"DJ Moore",team:"BUF",tds:7},{name:"Bhayshul Tuten",team:"JAX",tds:7},
+  {name:"Jameson Williams",team:"DET",tds:7},{name:"Michael Wilson",team:"ARI",tds:7},{name:"Romeo Doubs",team:"GB",tds:6},
+  {name:"Emeka Egbuka",team:"TB",tds:6},{name:"Rashee Rice",team:"KC",tds:6},{name:"Mark Andrews",team:"BAL",tds:6},
+  {name:"Kayshon Boutte",team:"NE",tds:6},{name:"Blake Corum",team:"LAR",tds:6},{name:"Zay Flowers",team:"BAL",tds:6},
+  {name:"Jayden Higgins",team:"HOU",tds:6},{name:"Tucker Kraft",team:"GB",tds:6},{name:"Colston Loveland",team:"CHI",tds:6},
+  {name:"Jordan Mason",team:"MIN",tds:6},{name:"Ladd McConkey",team:"LAC",tds:6},{name:"Rome Odunze",team:"CHI",tds:6},
+  {name:"Alec Pierce",team:"IND",tds:6},{name:"Chris Rodriguez",team:"JAX",tds:6},{name:"Deebo Samuel",team:"WAS",tds:6},
+  {name:"Isaac TeSlaa",team:"DET",tds:6},{name:"Jaylen Waddle",team:"DEN",tds:6},{name:"Darren Waller",team:"MIA",tds:6},
+  {name:"Christian Watson",team:"GB",tds:6},{name:"Troy Franklin",team:"DEN",tds:6},{name:"Woody Marks",team:"HOU",tds:5},
+  {name:"Parker Washington",team:"JAX",tds:5},{name:"Tory Horton",team:"SEA",tds:5},{name:"Kyle Monangai",team:"CHI",tds:5},
+  {name:"Travis Kelce",team:"KC",tds:5},{name:"Marquise Brown",team:"KC",tds:5},{name:"Breece Hall",team:"NYJ",tds:5},
+  {name:"Omarion Hampton",team:"LAC",tds:5},{name:"Tez Johnson",team:"TB",tds:5},{name:"Theo Johnson",team:"NYG",tds:5},
+  {name:"Ty Johnson",team:"BUF",tds:5},{name:"Dalton Kincaid",team:"BUF",tds:5},{name:"Zonovan Knight",team:"ARI",tds:5},
+  {name:"Kyle Pitts",team:"ATL",tds:5},{name:"Tony Pollard",team:"TEN",tds:5},{name:"Devin Singletary",team:"NYG",tds:5},
+  {name:"Jake Tonges",team:"SF",tds:5},{name:"Tre Tucker",team:"LV",tds:5},{name:"Kenneth Walker III",team:"SEA",tds:5},
+  {name:"Tyler Warren",team:"IND",tds:5},
+];
+
 const S = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -393,6 +462,13 @@ input.si:focus{border-color:#00c4b4}input.si::placeholder{color:#5fa89e}
 .mplayed-val{font-family:var(--F);font-size:20px;color:#00c4b4;letter-spacing:1px}
 .mplayed-tot{color:#5fa89e;font-size:16px}
 .breakdown-cell{background:#000;border:1px solid #1a3a3a;border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between}
+.cap-bar-wrap{background:#0a1a1a;border:2px solid #fff;border-radius:8px;padding:14px 18px;margin-bottom:16px}
+.cap-bar-row{display:flex;justifyContent:space-between;align-items:baseline;margin-bottom:8px}
+.cap-bar-track{height:10px;border-radius:5px;background:#111;overflow:hidden}
+.cap-bar-fill{height:100%;transition:width .2s}
+.nfl-select{width:100%;background:#000;color:#fff;border:1px solid #333;border-radius:6px;padding:10px 12px;font-size:14px;font-family:var(--B)}
+.nfl-select:focus{outline:none;border-color:#00c4b4}
+.nfl-slot-lbl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#5fa89e;margin-bottom:5px;display:block}
 `;
 
 function RB({rank}) {
@@ -618,6 +694,304 @@ function WCEntryForm() {
       <div className="form-section" style={{padding:20}}>
         <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
           {submitting ? "SAVING..." : canSubmit ? (isEditing ? "SAVE CHANGES" : "SUBMIT MY PICKS") : "COMPLETE ALL FIELDS " + (!allPicked ? "(" + (totalGroups-pickedCount) + " left)" : "")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── NFL ENTRY FORM ────────────────────────────────────────────────────────────
+const NFL_CAP = 146;
+
+function NFLEntryForm() {
+  const isOpen = new Date() < NFL_DEADLINE;
+  const [step, setStep] = useState("lookup");
+  const [lookupName, setLookupName] = useState("");
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+  const [existingEntries, setExistingEntries] = useState([]);
+  const [entryNumber, setEntryNumber] = useState(1);
+  const [isEditing, setIsEditing] = useState(false);
+  const [qb, setQb] = useState(["", ""]);
+  const [k, setK] = useState(["", ""]);
+  const [players, setPlayers] = useState(["", "", "", "", "", ""]);
+  const [swap, setSwap] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  const qbSalary = (t) => NFL_QB_TEAMS.find(x => x.team === t)?.tds || 0;
+  const kSalary = (t) => NFL_KICKER_TEAMS.find(x => x.team === t)?.pts || 0;
+  const pSalary = (n) => NFL_PLAYER_POOL.find(x => x.name === n)?.tds || 0;
+
+  const capUsed = qb.reduce((s, t) => s + qbSalary(t), 0)
+    + k.reduce((s, t) => s + kSalary(t), 0)
+    + players.reduce((s, n) => s + pSalary(n), 0);
+  const overCap = capUsed > NFL_CAP;
+
+  const allSlotsFilled = qb.every(Boolean) && k.every(Boolean) && players.every(Boolean) && swap;
+  const rosterNames = [...players, swap].filter(Boolean);
+  const noDupePlayers = new Set(rosterNames).size === rosterNames.length;
+  const noDupeQb = new Set(qb.filter(Boolean)).size === qb.filter(Boolean).length;
+  const noDupeK = new Set(k.filter(Boolean)).size === k.filter(Boolean).length;
+  const canSubmit = allSlotsFilled && !overCap && noDupePlayers && noDupeQb && noDupeK && !submitting;
+
+  const entryFromRow = (entry) => {
+    setQb([entry.qb1 || "", entry.qb2 || ""]);
+    setK([entry.k1 || "", entry.k2 || ""]);
+    setPlayers([1,2,3,4,5,6].map(i => entry["player"+i] || ""));
+    setSwap(entry.swap || "");
+  };
+
+  const handleLookup = () => {
+    setLookupError("");
+    if (!lookupName.trim()) { setLookupError("Please enter your name."); return; }
+    if (!lookupEmail.trim() || !lookupEmail.includes("@")) { setLookupError("Please enter a valid email."); return; }
+    if (!NFL_SUBMIT_URL) { setLookupError("Picks aren't connected yet — check back soon."); return; }
+    setLookupLoading(true);
+    fetch(NFL_SUBMIT_URL + "?email=" + encodeURIComponent(lookupEmail.trim()))
+      .then(r => r.json())
+      .then(data => {
+        const entries = data.submissions || [];
+        setExistingEntries(entries);
+        setLookupLoading(false);
+        if (entries.length === 0) { setEntryNumber(1); setIsEditing(false); setStep("form"); }
+        else { setStep("choose"); }
+      })
+      .catch(() => { setLookupError("Could not check entries. Try again."); setLookupLoading(false); });
+  };
+
+  const handleChooseEdit = (entry) => {
+    setEntryNumber(entry.entryNumber || 1); setIsEditing(true);
+    entryFromRow(entry); setStep("form");
+  };
+
+  const handleChooseNew = () => {
+    setEntryNumber(2); setIsEditing(false);
+    setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap("");
+    setStep("form");
+  };
+
+  const handleSubmit = () => {
+    setError("");
+    if (!allSlotsFilled) { setError("Please fill every slot, including your Swap Player."); return; }
+    if (!noDupeQb) { setError("Your two Team QB picks must be different teams."); return; }
+    if (!noDupeK) { setError("Your two Team Kicker picks must be different teams."); return; }
+    if (!noDupePlayers) { setError("Each player (including your Swap Player) must be different."); return; }
+    if (overCap) { setError(`Your total is ${capUsed}, which is over the ${NFL_CAP} cap.`); return; }
+    setSubmitting(true);
+    const payload = {
+      name: lookupName.trim(), email: lookupEmail.trim(), entryNumber,
+      qb1: qb[0], qb2: qb[1], k1: k[0], k2: k[1],
+      player1: players[0], player2: players[1], player3: players[2],
+      player4: players[3], player5: players[4], player6: players[5],
+      swap,
+    };
+    fetch(NFL_SUBMIT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      .then(() => { setSubmitted(true); setSubmitting(false); })
+      .catch(() => { setError("Something went wrong. Please try again."); setSubmitting(false); });
+  };
+
+  const resetAll = () => {
+    setStep("lookup"); setLookupEmail(""); setLookupName(""); setExistingEntries([]);
+    setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap("");
+    setSubmitted(false); setError(""); setIsEditing(false);
+  };
+
+  const CapBar = () => (
+    <div className="cap-bar-wrap">
+      <div className="cap-bar-row" style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+        <span style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:overCap?"#e84545":"#00c4b4"}}>
+          SALARY: {capUsed} / {NFL_CAP}
+        </span>
+        {overCap && <span style={{fontSize:12,color:"#e84545",fontWeight:700}}>OVER CAP</span>}
+      </div>
+      <div className="cap-bar-track">
+        <div className="cap-bar-fill" style={{width:Math.min(100,(capUsed/NFL_CAP)*100)+"%",background:overCap?"#e84545":"#00c4b4"}}/>
+      </div>
+      <div style={{fontSize:11,color:"#5fa89e",marginTop:6}}>Your Swap Player's salary is not counted here — it only matters if you use the swap later.</div>
+    </div>
+  );
+
+  if (!isOpen) return (
+    <div style={{textAlign:"center",padding:"60px 24px"}}>
+      <div style={{fontSize:64,marginBottom:16}}>🔒</div>
+      <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"#e84545",marginBottom:12}}>SUBMISSIONS CLOSED</div>
+      <div style={{color:"#5fa89e",fontSize:16}}>The deadline for NFL Derby picks has passed.</div>
+    </div>
+  );
+
+  if (submitted) return (
+    <div className="success-screen">
+      <div className="success-icon">{isEditing ? "✏️" : "🏈"}</div>
+      <div className="success-title">{isEditing ? "PICKS UPDATED!" : "YOU'RE IN!"}</div>
+      <div className="success-sub">{isEditing ? `Entry ${entryNumber} updated, ${lookupName.split(" ")[0]}!` : `Submitted! Good luck ${lookupName.split(" ")[0]}!`}</div>
+      <div className="picks-summary">
+        <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"#00c4b4",marginBottom:12}}>YOUR ROSTER</div>
+        <div className="picks-summary-row"><span className="picks-summary-label">Team QB 1</span><span className="picks-summary-value">{qb[0]}</span></div>
+        <div className="picks-summary-row"><span className="picks-summary-label">Team QB 2</span><span className="picks-summary-value">{qb[1]}</span></div>
+        <div className="picks-summary-row"><span className="picks-summary-label">Team Kicker 1</span><span className="picks-summary-value">{k[0]}</span></div>
+        <div className="picks-summary-row"><span className="picks-summary-label">Team Kicker 2</span><span className="picks-summary-value">{k[1]}</span></div>
+        {players.map((p,i) => (
+          <div className="picks-summary-row" key={i}><span className="picks-summary-label">Player {i+1}</span><span className="picks-summary-value">{p}</span></div>
+        ))}
+        <div className="picks-summary-row"><span className="picks-summary-label">Swap Player</span><span className="picks-summary-value">{swap}</span></div>
+        <div className="picks-summary-row"><span className="picks-summary-label">Salary Used</span><span className="picks-summary-value">{capUsed} / {NFL_CAP}</span></div>
+      </div>
+      <button className="submit-btn" onClick={resetAll}>BACK / NEW ENTRY</button>
+    </div>
+  );
+
+  if (step === "lookup") return (
+    <div style={{maxWidth:500,margin:"0 auto"}}>
+      <div className="dbadge" style={{display:"flex",alignItems:"center",gap:14,padding:"16px 20px",marginBottom:16,borderRadius:8,width:"100%"}}>
+        <div style={{fontSize:28}}>⏰</div>
+        <div>
+          <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:1}}>PICKS DUE SEPT 9 - 8:00 PM ET</div>
+          <div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>Entry fee: 50 units</div>
+        </div>
+      </div>
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">01 - </span>GET STARTED</span></div>
+        <div className="form-group">
+          <label className="form-label">Your Name</label>
+          <input className="form-input" placeholder="First and last name" value={lookupName} onChange={e => setLookupName(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Email Address</label>
+          <input className="form-input" type="email" placeholder="your@email.com" value={lookupEmail} onChange={e => setLookupEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLookup()} />
+        </div>
+        {lookupError && <div className="error-msg" style={{margin:"0 20px 16px"}}>{lookupError}</div>}
+        <div style={{padding:"16px 20px"}}>
+          <button className="submit-btn" onClick={handleLookup} disabled={lookupLoading}>{lookupLoading ? "CHECKING..." : "CONTINUE"}</button>
+        </div>
+      </div>
+      <div style={{padding:"14px 18px",background:"#000",border:"2px solid #fff",borderRadius:8,fontSize:13,color:"#5fa89e",lineHeight:1.7}}>
+        By submitting you agree to pay the <strong style={{color:"#fff"}}>50-unit entry fee</strong>. Payment can be sent through Zelle — contact Scott directly for details. Once the season starts, pool entries will be announced on this site. Thanks for joining and good luck!
+      </div>
+    </div>
+  );
+
+  if (step === "choose") return (
+    <div style={{maxWidth:700,margin:"0 auto"}}>
+      <div className="form-section">
+        <div className="form-section-hdr"><span>FOUND YOUR {existingEntries.length === 1 ? "ENTRY" : "ENTRIES"}</span></div>
+        <div style={{padding:20}}>
+          <div style={{fontSize:14,color:"#5fa89e",marginBottom:20}}>
+            Hi <strong style={{color:"#fff"}}>{lookupName.split(" ")[0]}</strong>! Found {existingEntries.length} existing {existingEntries.length === 1 ? "entry" : "entries"} for <strong style={{color:"#00c4b4"}}>{lookupEmail}</strong>.
+          </div>
+          {existingEntries.map((entry, i) => (
+            <div key={i} style={{background:"#0a1a1a",border:"1px solid #fff",borderRadius:8,padding:16,marginBottom:12}}>
+              <div style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4",marginBottom:10,letterSpacing:1}}>ENTRY {entry.entryNumber || i+1}</div>
+              <div style={{fontSize:12,color:"#5fa89e",marginBottom:12}}>
+                QB: {entry.qb1}, {entry.qb2} — K: {entry.k1}, {entry.k2} — Swap: {entry.swap || "—"}
+              </div>
+              <button className="submit-btn" style={{fontSize:16,padding:12}} onClick={() => handleChooseEdit(entry)}>EDIT THIS ENTRY</button>
+            </div>
+          ))}
+          <div style={{marginTop:12,textAlign:"center"}}>
+            <button onClick={resetAll} style={{background:"transparent",border:"none",color:"#5fa89e",cursor:"pointer",fontSize:13,textDecoration:"underline"}}>Use a different email</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const pickedPlayerSet = new Set(players.filter(Boolean));
+  const pickedQbSet = new Set(qb.filter(Boolean));
+  const pickedKSet = new Set(k.filter(Boolean));
+
+  return (
+    <div style={{maxWidth:800,margin:"0 auto"}}>
+      <div style={{background:"#0a1a1a",border:"2px solid #00c4b4",borderRadius:8,padding:"12px 18px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:1,color:"#00c4b4"}}>{isEditing ? "EDITING ENTRY " + entryNumber : "NEW ENTRY"}</div>
+          <div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>{lookupName} - {lookupEmail}</div>
+        </div>
+        <button onClick={() => setStep(existingEntries.length > 0 ? "choose" : "lookup")} style={{background:"transparent",border:"1px solid #5fa89e",borderRadius:4,color:"#5fa89e",cursor:"pointer",fontSize:12,padding:"4px 12px"}}>Back</button>
+      </div>
+
+      <CapBar/>
+
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">01 - </span>TEAM QB (pick 2)</span></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:20}}>
+          {[0,1].map(i => (
+            <div key={i}>
+              <label className="nfl-slot-lbl">Team QB {i+1}</label>
+              <select className="nfl-select" value={qb[i]} onChange={e => setQb(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}>
+                <option value="">Select a team</option>
+                {NFL_QB_TEAMS.map(t => (
+                  <option key={t.team} value={t.team} disabled={pickedQbSet.has(t.team) && qb[i] !== t.team}>
+                    {t.team} ({t.tds})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">02 - </span>TEAM KICKER (pick 2)</span></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:20}}>
+          {[0,1].map(i => (
+            <div key={i}>
+              <label className="nfl-slot-lbl">Team Kicker {i+1}</label>
+              <select className="nfl-select" value={k[i]} onChange={e => setK(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}>
+                <option value="">Select a team</option>
+                {NFL_KICKER_TEAMS.map(t => (
+                  <option key={t.team} value={t.team} disabled={pickedKSet.has(t.team) && k[i] !== t.team}>
+                    {t.team} ({t.pts})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">03 - </span>SKILL PLAYERS (pick 6)</span></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:20}}>
+          {[0,1,2,3,4,5].map(i => (
+            <div key={i}>
+              <label className="nfl-slot-lbl">Player {i+1}</label>
+              <select className="nfl-select" value={players[i]} onChange={e => setPlayers(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}>
+                <option value="">Select a player</option>
+                {NFL_PLAYER_POOL.map(p => (
+                  <option key={p.name} value={p.name} disabled={(pickedPlayerSet.has(p.name) && players[i] !== p.name) || p.name === swap}>
+                    {p.name} ({p.team}, {p.tds})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-hdr"><span><span className="num">04 - </span>SWAP PLAYER</span></div>
+        <div style={{padding:20}}>
+          <div style={{fontSize:12,color:"#5fa89e",marginBottom:10}}>
+            Designate a 7th player who can replace one of your 6 before Week 9. Doesn't count toward your salary cap now — but can't push you over 146 at the time you swap him in.
+          </div>
+          <select className="nfl-select" value={swap} onChange={e => setSwap(e.target.value)}>
+            <option value="">Select a player</option>
+            {NFL_PLAYER_POOL.map(p => (
+              <option key={p.name} value={p.name} disabled={pickedPlayerSet.has(p.name) && swap !== p.name}>
+                {p.name} ({p.team}, {p.tds})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {error && <div className="error-msg">{error}</div>}
+      <div className="form-section" style={{padding:20}}>
+        <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
+          {submitting ? "SAVING..." : canSubmit ? (isEditing ? "SAVE CHANGES" : "SUBMIT MY PICKS") : overCap ? "OVER SALARY CAP" : "COMPLETE ALL SLOTS"}
         </button>
       </div>
     </div>
@@ -1345,23 +1719,18 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </div>
           <button className="dcta">{isLocked?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
         </div>
-      </div>
-      <div className="dgrid-label">ON DECK</div>
-      <div className="dgrid">
-        <div className="dc dc-coming" onClick={()=>setTab("nfl")}>
-          <div className="dc-ribbon">COMING SOON</div>
+        <div className="dc" onClick={()=>setTab("nfl")}>
           <div className="dctop">
             <div className="dico">🏈</div>
             <div><div className="dctitle">NFL Derby Pool</div><div className="dcsub">2026 NFL Season</div></div>
-            <span className="bcome" style={{marginLeft:"auto"}}>SOON</span>
+            <span className={new Date()>=NFL_DEADLINE?"blive":"bsoon"} style={{marginLeft:"auto"}}>{new Date()>=NFL_DEADLINE?"LIVE":"OPEN"}</span>
           </div>
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Entry</span><span className="dsv">50 units</span></div>
             <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Sep 9, 2026 - 8:00 PM ET</span></div>
-            <div className="dsr"><span className="dsl">Kickoff</span><span className="dsv">Sep 9 - SEA vs NE</span></div>
-            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#ffd700"}}>Player Pools In Progress</span></div>
+            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{new Date()>=NFL_DEADLINE?"Season Live":"Submissions Open"}</span></div>
           </div>
-          <button className="dcta dcta-coming">VIEW RULES PREVIEW</button>
+          <button className="dcta">{new Date()>=NFL_DEADLINE?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
         </div>
       </div>
       <div className="card">
@@ -1473,69 +1842,6 @@ function startFireworks(canvas) {
   setTimeout(() => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); ctx.clearRect(0,0,W,H); canvas.style.display="none"; }, 20000);
 }
 
-// ── NFL DERBY COMING SOON ─────────────────────────────────────────────────────
-function NFLCountdown() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const diff = NFL_DEADLINE - now;
-  if (diff <= 0) return <div style={{fontFamily:"var(--F)",fontSize:28,letterSpacing:2,color:"#e84545"}}>PICKS ARE LOCKED</div>;
-  const d = Math.floor(diff/86400000), h = Math.floor(diff/3600000)%24, m = Math.floor(diff/60000)%60, s = Math.floor(diff/1000)%60;
-  const cell = (v,l) => (
-    <div key={l} style={{textAlign:"center",minWidth:64}}>
-      <div style={{fontFamily:"var(--F)",fontSize:36,letterSpacing:2,color:"#ffd700"}}>{String(v).padStart(2,"0")}</div>
-      <div style={{fontSize:11,color:"#5fa89e",letterSpacing:2}}>{l}</div>
-    </div>
-  );
-  return (
-    <div style={{display:"flex",gap:16,justifyContent:"center",marginTop:18}}>
-      {cell(d,"DAYS")}{cell(h,"HRS")}{cell(m,"MIN")}{cell(s,"SEC")}
-    </div>
-  );
-}
-
-function NFLComingSoon() {
-  const rows = [
-    ["Roster","2 Team QBs, 2 Team Kickers, 6 WR/RB/TEs, plus 1 designated Swap Player"],
-    ["Salary Cap","146 total - player salaries equal their prior-season TD totals"],
-    ["Swap Player","One swap allowed before Week 9 kicks off. Swap-in cannot push you over the cap. Team QBs and Team Kickers cannot be swapped. Once you swap, your roster locks for the season."],
-    ["Scoring","Offensive TDs = 6 pts (rush/receive/pass). Field goals = 3 pts. Extra points, special teams, and defensive TDs do not count."],
-    ["Pay Periods","Weeks 1-4, 5-8, 9-13, 14-18, plus Overall Cumulative (Weeks 1-18)"],
-    ["Entry","50 units - payment due by Week 2 or your team is removed"],
-  ];
-  return (
-    <div>
-      <div className="nfl-hero">
-        <div style={{fontSize:56,marginBottom:12}}>🏈</div>
-        <div className="nfl-hero-title">NFL DERBY POOL</div>
-        <div className="nfl-hero-sub">
-          The next Wug Derby pool kicks off with the 2026 NFL season.
-          Player pools and pick sheets are being built now and will be posted here soon.
-        </div>
-        <div style={{marginTop:22,fontSize:13,color:"#5fa89e",letterSpacing:2}}>PICKS DUE WEDNESDAY, SEPT 9 - 8:00 PM ET</div>
-        <NFLCountdown/>
-      </div>
-      <div className="card">
-        <div className="chdr">Rules Preview</div>
-        <div style={{padding:"16px 20px",color:"#5fa89e",fontSize:14,lineHeight:1.8}}>
-          {rows.map(r => (
-            <div key={r[0]} style={{marginBottom:12}}>
-              <span style={{color:"#ffd700",fontWeight:700}}>{r[0]}</span>
-              <span style={{color:"#8fc9c0"}}> — {r[1]}</span>
-            </div>
-          ))}
-          <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid #1e3a36",fontSize:13}}>
-            Full rules, player pools, and the submission form will be posted before picks open.
-            The more teams that sign up, the bigger the pot. Watch The Crawl for updates.
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("dashboard");
@@ -1599,7 +1905,7 @@ export default function App() {
           {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} submissions={submissions} wcScores={wcScores}/>}
           {tab==="hr" && <HRDerby allData={allData}/>}
           {tab==="wc" && <WorldCup submissions={submissions} wcScores={wcScores} wcScorers={wcScorers}/>}
-          {tab==="nfl" && <NFLComingSoon/>}
+          {tab==="nfl" && <NFLEntryForm/>}
         </main>
       </div>
     </>
