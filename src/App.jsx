@@ -1726,7 +1726,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
             <span className={new Date()>=NFL_DEADLINE?"blive":"bsoon"} style={{marginLeft:"auto"}}>{new Date()>=NFL_DEADLINE?"LIVE":"OPEN"}</span>
           </div>
           <div className="dcbody">
-            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">50 units</span></div>
+            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$50</span></div>
             <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Sep 9, 2026 - 8:00 PM ET</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{new Date()>=NFL_DEADLINE?"Season Live":"Submissions Open"}</span></div>
           </div>
