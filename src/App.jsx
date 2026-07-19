@@ -1694,6 +1694,7 @@ function HRDerby({allData}) {
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
+  const [showNflRules, setShowNflRules] = useState(false);
   const cur = allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
   const ss = cur.seasonStandings || [];
   const ms = cur.monthlyStandings || [];
@@ -1750,8 +1751,29 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
             <span className={new Date()>=NFL_DEADLINE?"blive":"bsoon"} style={{marginLeft:"auto"}}>{new Date()>=NFL_DEADLINE?"LIVE":"OPEN"}</span>
           </div>
           <div className="dcbody">
-            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">50 units</span></div>
+            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$50</span></div>
             <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Sep 9, 2026 - 8:00 PM ET</span></div>
+            <div className="dsr" style={{marginBottom:8}}>
+              <span
+                onClick={(e) => { e.stopPropagation(); setShowNflRules(v => !v); }}
+                style={{color:"#00c4b4",fontSize:12,textDecoration:"underline",cursor:"pointer"}}
+              >
+                {showNflRules ? "Hide Rules ▴" : "View Abbreviated Rules ▾"}
+              </span>
+            </div>
+            {showNflRules && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{background:"#000",border:"1px solid #1a3a3a",borderRadius:6,padding:"10px 12px",marginBottom:8,fontSize:12,color:"#8fc9c0",lineHeight:1.7}}
+              >
+                <div><strong style={{color:"#ffd700"}}>Roster:</strong> 2 Team QBs, 2 Team Kickers, 6 skill players, 1 Swap Player</div>
+                <div><strong style={{color:"#ffd700"}}>Cap:</strong> 146 total (salaries from 2025 stats)</div>
+                <div><strong style={{color:"#ffd700"}}>Swap:</strong> One swap allowed before Week 9; can't exceed the cap; QB/K can't be swapped</div>
+                <div><strong style={{color:"#ffd700"}}>Scoring:</strong> Rush/Rec/Pass TD = 6 pts, FG = 3 pts, XP = 0</div>
+                <div><strong style={{color:"#ffd700"}}>Pay Periods:</strong> Wks 1-4, 5-8, 9-13, 14-18, + Overall</div>
+                <div><strong style={{color:"#ffd700"}}>Entry:</strong> $50, due by Week 2</div>
+              </div>
+            )}
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{new Date()>=NFL_DEADLINE?"Season Live":"Submissions Open"}</span></div>
           </div>
           <button className="dcta">{new Date()>=NFL_DEADLINE?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
