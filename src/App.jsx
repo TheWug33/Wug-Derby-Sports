@@ -284,11 +284,11 @@ const NFL_PLAYER_POOL = [
   {name:"Isaac TeSlaa",team:"DET",tds:6},{name:"Jaylen Waddle",team:"DEN",tds:6},{name:"Darren Waller",team:"MIA",tds:6},
   {name:"Christian Watson",team:"GB",tds:6},{name:"Troy Franklin",team:"DEN",tds:6},{name:"Woody Marks",team:"HOU",tds:5},
   {name:"Parker Washington",team:"JAX",tds:5},{name:"Tory Horton",team:"SEA",tds:5},{name:"Kyle Monangai",team:"CHI",tds:5},
-  {name:"Travis Kelce",team:"KC",tds:5},{name:"Marquise Brown",team:"KC",tds:5},{name:"Breece Hall",team:"NYJ",tds:5},
+  {name:"Travis Kelce",team:"KC",tds:5},{name:"Marquise Brown",team:"PHI",tds:5},{name:"Breece Hall",team:"NYJ",tds:5},
   {name:"Omarion Hampton",team:"LAC",tds:5},{name:"Tez Johnson",team:"TB",tds:5},{name:"Theo Johnson",team:"NYG",tds:5},
   {name:"Ty Johnson",team:"BUF",tds:5},{name:"Dalton Kincaid",team:"BUF",tds:5},{name:"Zonovan Knight",team:"ARI",tds:5},
   {name:"Kyle Pitts",team:"ATL",tds:5},{name:"Tony Pollard",team:"TEN",tds:5},{name:"Devin Singletary",team:"NYG",tds:5},
-  {name:"Jake Tonges",team:"SF",tds:5},{name:"Tre Tucker",team:"LV",tds:5},{name:"Kenneth Walker III",team:"SEA",tds:5},
+  {name:"Jake Tonges",team:"SF",tds:5},{name:"Tre Tucker",team:"LV",tds:5},{name:"Kenneth Walker III",team:"KC",tds:5},
   {name:"Tyler Warren",team:"IND",tds:5},
 ];
 
