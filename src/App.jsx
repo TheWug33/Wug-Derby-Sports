@@ -1730,20 +1730,6 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </div>
           <button className="dcta">VIEW STANDINGS</button>
         </div>
-        <div className="dc" onClick={()=>setTab("wc")}>
-          <div className="dctop">
-            <div className="dico">⚽</div>
-            <div><div className="dctitle">World Cup Pool</div><div className="dcsub">FIFA World Cup 2026</div></div>
-            <span className={isLocked?"blive":"bsoon"} style={{marginLeft:"auto"}}>{isLocked?"LIVE":"OPEN"}</span>
-          </div>
-          <div className="dcbody">
-            <div className="dsr"><span className="dsl">Entries</span><span className="dsv">{submissions.length} submitted</span></div>
-            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$35</span></div>
-            <div className="dsr"><span className="dsl">Deadline</span><span className="dsv">Jun 11, 2026 - 3:00 PM</span></div>
-            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{isLocked?"Tournament Live":"Submissions Open"}</span></div>
-          </div>
-          <button className="dcta">{isLocked?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
-        </div>
         <div className="dc" onClick={()=>setTab("nfl")}>
           <div className="dctop">
             <div className="dico">🏈</div>
@@ -1779,6 +1765,22 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           <button className="dcta">{new Date()>=NFL_DEADLINE?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
         </div>
       </div>
+      <div style={{marginTop:32,marginBottom:12}}>
+        <div style={{fontFamily:"var(--F)",fontSize:22,letterSpacing:2,color:"#5fa89e",marginBottom:12,borderBottom:"1px solid #1a3a3a",paddingBottom:8}}>PAST POOLS</div>
+        <div className="dc" style={{opacity:0.8,cursor:"pointer"}} onClick={()=>setTab("wc")}>
+          <div className="dctop">
+            <div className="dico">⚽</div>
+            <div><div className="dctitle">World Cup Pool</div><div className="dcsub">FIFA World Cup 2026 - Final Results</div></div>
+            <span style={{marginLeft:"auto",background:"rgba(255,215,0,.12)",color:"#ffd700",border:"1px solid #ffd700",borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:700,letterSpacing:1}}>FINAL</span>
+          </div>
+          <div className="dcbody">
+            <div className="dsr"><span className="dsl">Champion</span><span className="dsv" style={{color:"#ffd700"}}>Spain</span></div>
+            <div className="dsr"><span className="dsl">Entries</span><span className="dsv">{submissions.length} participants</span></div>
+            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#5fa89e"}}>Tournament Complete</span></div>
+          </div>
+          <button className="dcta">VIEW RESULTS</button>
+        </div>
+      </div>
       <div className="card">
         <div className="chdr">HR Derby - Season Top 5</div>
         <table>
@@ -1798,9 +1800,8 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </tbody>
         </table>
       </div>
-      {isLocked && (
-        <div className="card">
-          <div className="chdr">World Cup Pool - Top 5</div>
+      <div className="card">
+          <div className="chdr">World Cup Pool - Final Top 5</div>
           <table>
             <thead><tr><th>Rank</th><th>Participant</th><th className="r">Points</th></tr></thead>
             <tbody>
@@ -1814,7 +1815,6 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
             </tbody>
           </table>
         </div>
-      )}
     </div>
   );
 }
@@ -1928,10 +1928,10 @@ export default function App() {
       <div>
         <header className="hdr">
           <div className="logo" style={{cursor:"pointer"}} onClick={()=>setTab("dashboard")}>WUG DERBY<span> POOLS</span></div>
-          <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:new Date()>=DEADLINE?<span style={{color:"#e84545",fontWeight:700}}>TOURNAMENT LIVE</span>:"Wug Derby Pools - 2026"}</div>
+          <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:<span style={{color:"#00e5d4",fontWeight:700}}>HR DERBY LIVE</span>}</div>
         </header>
         <nav className="nav">
-          {[{id:"dashboard",label:"Dashboard"},{id:"hr",label:"HR Derby"},{id:"wc",label:"World Cup"},{id:"nfl",label:"NFL Derby"}].map(t=>(
+          {[{id:"dashboard",label:"Dashboard"},{id:"hr",label:"HR Derby"},{id:"nfl",label:"NFL Derby"},{id:"wc",label:"World Cup"}].map(t=>(
             <button key={t.id} className={"ntab"+(tab===t.id?" on":"")} onClick={()=>setTab(t.id)}>{t.label}</button>
           ))}
         </nav>
