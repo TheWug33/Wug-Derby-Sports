@@ -1765,22 +1765,6 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           <button className="dcta">{new Date()>=NFL_DEADLINE?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
         </div>
       </div>
-      <div style={{marginTop:32,marginBottom:12}}>
-        <div style={{fontFamily:"var(--F)",fontSize:22,letterSpacing:2,color:"#5fa89e",marginBottom:12,borderBottom:"1px solid #1a3a3a",paddingBottom:8}}>PAST POOLS</div>
-        <div className="dc" style={{opacity:0.8,cursor:"pointer"}} onClick={()=>setTab("wc")}>
-          <div className="dctop">
-            <div className="dico">⚽</div>
-            <div><div className="dctitle">World Cup Pool</div><div className="dcsub">FIFA World Cup 2026 - Final Results</div></div>
-            <span style={{marginLeft:"auto",background:"rgba(255,215,0,.12)",color:"#ffd700",border:"1px solid #ffd700",borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:700,letterSpacing:1}}>FINAL</span>
-          </div>
-          <div className="dcbody">
-            <div className="dsr"><span className="dsl">Champion</span><span className="dsv" style={{color:"#ffd700"}}>Spain</span></div>
-            <div className="dsr"><span className="dsl">Entries</span><span className="dsv">{submissions.length} participants</span></div>
-            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#5fa89e"}}>Tournament Complete</span></div>
-          </div>
-          <button className="dcta">VIEW RESULTS</button>
-        </div>
-      </div>
       <div className="card">
         <div className="chdr">HR Derby - Season Top 5</div>
         <table>
@@ -1799,6 +1783,22 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
             })}
           </tbody>
         </table>
+      </div>
+      <div style={{marginTop:32,marginBottom:12}}>
+        <div style={{fontFamily:"var(--F)",fontSize:22,letterSpacing:2,color:"#5fa89e",marginBottom:12,borderBottom:"1px solid #1a3a3a",paddingBottom:8}}>PAST POOLS</div>
+        <div className="dc" style={{opacity:0.8,cursor:"pointer"}} onClick={()=>setTab("wc")}>
+          <div className="dctop">
+            <div className="dico">⚽</div>
+            <div><div className="dctitle">World Cup Pool</div><div className="dcsub">FIFA World Cup 2026 - Final Results</div></div>
+            <span style={{marginLeft:"auto",background:"rgba(255,215,0,.12)",color:"#ffd700",border:"1px solid #ffd700",borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:700,letterSpacing:1}}>FINAL</span>
+          </div>
+          <div className="dcbody">
+            <div className="dsr"><span className="dsl">Champion</span><span className="dsv" style={{color:"#ffd700"}}>Spain</span></div>
+            <div className="dsr"><span className="dsl">Entries</span><span className="dsv">{submissions.length} participants</span></div>
+            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#5fa89e"}}>Tournament Complete</span></div>
+          </div>
+          <button className="dcta">VIEW RESULTS</button>
+        </div>
       </div>
       <div className="card">
           <div className="chdr">World Cup Pool - Final Top 5</div>
