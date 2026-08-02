@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 const JUNE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=966793280&single=true&output=csv";
 const JULY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=356880675&single=true&output=csv";
+const AUGUST_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=1316191049&single=true&output=csv";
 const MAY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=2102778375&single=true&output=csv";
 const APRIL_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=172900262&single=true&output=csv";
 const SUBS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=972756262&single=true&output=csv";
@@ -1508,13 +1509,13 @@ function WorldCup({submissions, wcScores, wcScorers}) {
 // ── HR DERBY ─────────────────────────────────────────────────────────────────
 function HRDerby({allData}) {
   const [sec, setSec] = useState("standings");
-  const [monthKey, setMonthKey] = useState("july");
+  const [monthKey, setMonthKey] = useState("august");
   const [stab, setStab] = useState("season");
   const [search, setSearch] = useState("");
   const [sel, setSel] = useState(null);
 
-  const months = [{key:"july",label:"July",cur:true},{key:"june",label:"June",cur:false},{key:"may",label:"May",cur:false},{key:"april",label:"April",cur:false}];
-  const cur = allData[monthKey] || allData["july"] || allData["june"] || allData["may"] || {monthlyStandings:[],seasonStandings:[],rosters:[],hrLeaders:[]};
+  const months = [{key:"august",label:"August",cur:true},{key:"july",label:"July",cur:false},{key:"june",label:"June",cur:false},{key:"may",label:"May",cur:false},{key:"april",label:"April",cur:false}];
+  const cur = allData[monthKey] || allData["august"] || allData["july"] || allData["june"] || allData["may"] || {monthlyStandings:[],seasonStandings:[],rosters:[],hrLeaders:[]};
   const ms = cur.monthlyStandings || [];
   const ss = cur.seasonStandings || [];
   const ros = cur.rosters || [];
@@ -1695,7 +1696,7 @@ function HRDerby({allData}) {
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   const [showNflRules, setShowNflRules] = useState(false);
-  const cur = allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
+  const cur = allData["august"] || allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
   const ss = cur.seasonStandings || [];
   const ms = cur.monthlyStandings || [];
   const sl = [...ss].sort((a,b)=>b.season-a.season)[0] || {};
@@ -1725,7 +1726,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </div>
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Season Leader</span><span className="dsv">{sl.name||"—"} ({sl.season||0} HR)</span></div>
-            <div className="dsr"><span className="dsl">July Leader</span><span className="dsv">{ml.name||"—"} ({ml.month||0} HR)</span></div>
+            <div className="dsr"><span className="dsl">August Leader</span><span className="dsv">{ml.name||"—"} ({ml.month||0} HR)</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Season Prize</span><span className="dsv">1st $300 - 2nd $175 - 3rd $75</span></div>
           </div>
           <button className="dcta">VIEW STANDINGS</button>
@@ -1901,6 +1902,7 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([
+      fetch(AUGUST_CSV_URL).then(r=>r.text()),
       fetch(JULY_CSV_URL).then(r=>r.text()),
       fetch(JUNE_CSV_URL).then(r=>r.text()),
       fetch(MAY_CSV_URL).then(r=>r.text()),
@@ -1908,8 +1910,8 @@ export default function App() {
       fetch(SUBS_CSV_URL).then(r=>r.text()),
       fetch(SCORES_CSV_URL).then(r=>r.text()),
       fetch(SCORERS_CSV_URL).then(r=>r.text()),
-    ]).then(([july, june, may, april, subs, scores, scorers]) => {
-      setAllData({ july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
+    ]).then(([august, july, june, may, april, subs, scores, scorers]) => {
+      setAllData({ august: parseCSV(august), july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
       setSubmissions(parseSubmissions(subs));
       setWcScores(parseScores(scores));
       setWcScorers(parseScorers(scorers));
