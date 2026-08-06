@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 
 const JUNE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=966793280&single=true&output=csv";
 const JULY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=356880675&single=true&output=csv";
-const AUGUST_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=1316191049&single=true&output=csv";
 const MAY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=2102778375&single=true&output=csv";
 const APRIL_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=172900262&single=true&output=csv";
 const SUBS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIMLdOoB3zeM0gpqCd6ejUT-eLYl1DHYjCz477dv9fF-fhTO27xXvjAtXJNvrbFpr5EFFJiIOefJYE/pub?gid=972756262&single=true&output=csv";
@@ -281,7 +280,7 @@ const NFL_PLAYER_POOL = [
   {name:"Kayshon Boutte",team:"NE",tds:6},{name:"Blake Corum",team:"LAR",tds:6},{name:"Zay Flowers",team:"BAL",tds:6},
   {name:"Jayden Higgins",team:"HOU",tds:6},{name:"Tucker Kraft",team:"GB",tds:6},{name:"Colston Loveland",team:"CHI",tds:6},
   {name:"Jordan Mason",team:"MIN",tds:6},{name:"Ladd McConkey",team:"LAC",tds:6},{name:"Rome Odunze",team:"CHI",tds:6},
-  {name:"Alec Pierce",team:"IND",tds:6},{name:"Chris Rodriguez",team:"JAX",tds:6},{name:"Deebo Samuel",team:"WAS",tds:6},
+  {name:"Alec Pierce",team:"IND",tds:6},{name:"Chris Rodriguez",team:"JAX",tds:6},{name:"Deebo Samuel",team:"SF",tds:6},
   {name:"Isaac TeSlaa",team:"DET",tds:6},{name:"Jaylen Waddle",team:"DEN",tds:6},{name:"Darren Waller",team:"MIA",tds:6},
   {name:"Christian Watson",team:"GB",tds:6},{name:"Troy Franklin",team:"DEN",tds:6},{name:"Woody Marks",team:"HOU",tds:5},
   {name:"Parker Washington",team:"JAX",tds:5},{name:"Tory Horton",team:"SEA",tds:5},{name:"Kyle Monangai",team:"CHI",tds:5},
@@ -1509,13 +1508,13 @@ function WorldCup({submissions, wcScores, wcScorers}) {
 // ── HR DERBY ─────────────────────────────────────────────────────────────────
 function HRDerby({allData}) {
   const [sec, setSec] = useState("standings");
-  const [monthKey, setMonthKey] = useState("august");
+  const [monthKey, setMonthKey] = useState("july");
   const [stab, setStab] = useState("season");
   const [search, setSearch] = useState("");
   const [sel, setSel] = useState(null);
 
-  const months = [{key:"august",label:"August",cur:true},{key:"july",label:"July",cur:false},{key:"june",label:"June",cur:false},{key:"may",label:"May",cur:false},{key:"april",label:"April",cur:false}];
-  const cur = allData[monthKey] || allData["august"] || allData["july"] || allData["june"] || allData["may"] || {monthlyStandings:[],seasonStandings:[],rosters:[],hrLeaders:[]};
+  const months = [{key:"july",label:"July",cur:true},{key:"june",label:"June",cur:false},{key:"may",label:"May",cur:false},{key:"april",label:"April",cur:false}];
+  const cur = allData[monthKey] || allData["july"] || allData["june"] || allData["may"] || {monthlyStandings:[],seasonStandings:[],rosters:[],hrLeaders:[]};
   const ms = cur.monthlyStandings || [];
   const ss = cur.seasonStandings || [];
   const ros = cur.rosters || [];
@@ -1696,7 +1695,7 @@ function HRDerby({allData}) {
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   const [showNflRules, setShowNflRules] = useState(false);
-  const cur = allData["august"] || allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
+  const cur = allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
   const ss = cur.seasonStandings || [];
   const ms = cur.monthlyStandings || [];
   const sl = [...ss].sort((a,b)=>b.season-a.season)[0] || {};
@@ -1726,10 +1725,24 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </div>
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Season Leader</span><span className="dsv">{sl.name||"—"} ({sl.season||0} HR)</span></div>
-            <div className="dsr"><span className="dsl">August Leader</span><span className="dsv">{ml.name||"—"} ({ml.month||0} HR)</span></div>
+            <div className="dsr"><span className="dsl">July Leader</span><span className="dsv">{ml.name||"—"} ({ml.month||0} HR)</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Season Prize</span><span className="dsv">1st $300 - 2nd $175 - 3rd $75</span></div>
           </div>
           <button className="dcta">VIEW STANDINGS</button>
+        </div>
+        <div className="dc" onClick={()=>setTab("wc")}>
+          <div className="dctop">
+            <div className="dico">⚽</div>
+            <div><div className="dctitle">World Cup Pool</div><div className="dcsub">FIFA World Cup 2026</div></div>
+            <span className={isLocked?"blive":"bsoon"} style={{marginLeft:"auto"}}>{isLocked?"LIVE":"OPEN"}</span>
+          </div>
+          <div className="dcbody">
+            <div className="dsr"><span className="dsl">Entries</span><span className="dsv">{submissions.length} submitted</span></div>
+            <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$35</span></div>
+            <div className="dsr"><span className="dsl">Deadline</span><span className="dsv">Jun 11, 2026 - 3:00 PM</span></div>
+            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{isLocked?"Tournament Live":"Submissions Open"}</span></div>
+          </div>
+          <button className="dcta">{isLocked?"VIEW POOL":"SUBMIT YOUR PICKS"}</button>
         </div>
         <div className="dc" onClick={()=>setTab("nfl")}>
           <div className="dctop">
@@ -1785,24 +1798,9 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </tbody>
         </table>
       </div>
-      <div style={{marginTop:32,marginBottom:12}}>
-        <div style={{fontFamily:"var(--F)",fontSize:22,letterSpacing:2,color:"#5fa89e",marginBottom:12,borderBottom:"1px solid #1a3a3a",paddingBottom:8}}>PAST POOLS</div>
-        <div className="dc" style={{opacity:0.8,cursor:"pointer"}} onClick={()=>setTab("wc")}>
-          <div className="dctop">
-            <div className="dico">⚽</div>
-            <div><div className="dctitle">World Cup Pool</div><div className="dcsub">FIFA World Cup 2026 - Final Results</div></div>
-            <span style={{marginLeft:"auto",background:"rgba(255,215,0,.12)",color:"#ffd700",border:"1px solid #ffd700",borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:700,letterSpacing:1}}>FINAL</span>
-          </div>
-          <div className="dcbody">
-            <div className="dsr"><span className="dsl">Champion</span><span className="dsv" style={{color:"#ffd700"}}>Spain</span></div>
-            <div className="dsr"><span className="dsl">Entries</span><span className="dsv">{submissions.length} participants</span></div>
-            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#5fa89e"}}>Tournament Complete</span></div>
-          </div>
-          <button className="dcta">VIEW RESULTS</button>
-        </div>
-      </div>
-      <div className="card">
-          <div className="chdr">World Cup Pool - Final Top 5</div>
+      {isLocked && (
+        <div className="card">
+          <div className="chdr">World Cup Pool - Top 5</div>
           <table>
             <thead><tr><th>Rank</th><th>Participant</th><th className="r">Points</th></tr></thead>
             <tbody>
@@ -1816,6 +1814,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
             </tbody>
           </table>
         </div>
+      )}
     </div>
   );
 }
@@ -1902,7 +1901,6 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([
-      fetch(AUGUST_CSV_URL).then(r=>r.text()),
       fetch(JULY_CSV_URL).then(r=>r.text()),
       fetch(JUNE_CSV_URL).then(r=>r.text()),
       fetch(MAY_CSV_URL).then(r=>r.text()),
@@ -1910,8 +1908,8 @@ export default function App() {
       fetch(SUBS_CSV_URL).then(r=>r.text()),
       fetch(SCORES_CSV_URL).then(r=>r.text()),
       fetch(SCORERS_CSV_URL).then(r=>r.text()),
-    ]).then(([august, july, june, may, april, subs, scores, scorers]) => {
-      setAllData({ august: parseCSV(august), july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
+    ]).then(([july, june, may, april, subs, scores, scorers]) => {
+      setAllData({ july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
       setSubmissions(parseSubmissions(subs));
       setWcScores(parseScores(scores));
       setWcScorers(parseScorers(scorers));
@@ -1930,10 +1928,10 @@ export default function App() {
       <div>
         <header className="hdr">
           <div className="logo" style={{cursor:"pointer"}} onClick={()=>setTab("dashboard")}>WUG DERBY<span> POOLS</span></div>
-          <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:<span style={{color:"#00e5d4",fontWeight:700}}>HR DERBY LIVE</span>}</div>
+          <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:new Date()>=DEADLINE?<span style={{color:"#e84545",fontWeight:700}}>TOURNAMENT LIVE</span>:"Wug Derby Pools - 2026"}</div>
         </header>
         <nav className="nav">
-          {[{id:"dashboard",label:"Dashboard"},{id:"hr",label:"HR Derby"},{id:"nfl",label:"NFL Derby"},{id:"wc",label:"World Cup"}].map(t=>(
+          {[{id:"dashboard",label:"Dashboard"},{id:"hr",label:"HR Derby"},{id:"wc",label:"World Cup"},{id:"nfl",label:"NFL Derby"}].map(t=>(
             <button key={t.id} className={"ntab"+(tab===t.id?" on":"")} onClick={()=>setTab(t.id)}>{t.label}</button>
           ))}
         </nav>
