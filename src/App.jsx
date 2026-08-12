@@ -17,7 +17,7 @@ const NFL_SUBMIT_URL = "https://script.google.com/macros/s/AKfycbyhAit22Rp_L5z-y
 // Standings need to read ALL entries at once, which is cheaper as a published CSV than
 // hitting the Apps Script per viewer. Publish the same entries Sheet to the web as CSV
 // (File > Share > Publish to web > this sheet > CSV) and paste that link here.
-const NFL_ENTRIES_CSV_URL = "";
+const NFL_ENTRIES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1_Fhz8leF7rFSyh-hIcCQKQl9ozfMTWZJ738fYi21bkD7SJiNfcJyYtMKJOyDkr-J2gjFPvRFG7VG/pub?gid=0&single=true&output=csv";
 const NFL_SEASON_YEAR = 2026;
 const DEADLINE = new Date("2026-06-11T15:00:00");
 const NFL_DEADLINE = new Date("2026-09-09T20:00:00-04:00");
