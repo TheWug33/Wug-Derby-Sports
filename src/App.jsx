@@ -114,6 +114,15 @@ function parseSubmissions(text) {
   return subs;
 }
 
+// Hashes a PIN with SHA-256 so the real PIN is never stored or transmitted --
+// only this one-way scrambled version, which can confirm a match but can't be
+// reversed back into the original PIN.
+async function hashPin(pin) {
+  if (!pin) return "";
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 function parseNflEntriesCSV(text) {
   const lines = text.split("\n").filter(l => l.trim() !== "");
   if (lines.length < 2) return [];
@@ -798,6 +807,7 @@ const NFL_CAP = 146;
 function NFLEntryForm() {
   const isOpen = new Date() < NFL_DEADLINE;
   const [step, setStep] = useState("lookup");
+  const [mode, setMode] = useState("new"); // "new" or "edit" -- just affects copy/framing
   const [lookupName, setLookupName] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
   const [teamName, setTeamName] = useState("");
@@ -813,6 +823,12 @@ function NFLEntryForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [pin, setPin] = useState("");
+  const [existingPinHash, setExistingPinHash] = useState("");
+  const [pendingEditEntry, setPendingEditEntry] = useState(null);
+  const [pinVerifyInput, setPinVerifyInput] = useState("");
+  const [pinVerifyError, setPinVerifyError] = useState("");
+  const [pinVerifying, setPinVerifying] = useState(false);
 
   const qbSalary = (t) => NFL_QB_TEAMS.find(x => x.team === t)?.tds || 0;
   const kSalary = (t) => NFL_KICKER_TEAMS.find(x => x.team === t)?.pts || 0;
@@ -828,7 +844,8 @@ function NFLEntryForm() {
   const noDupePlayers = new Set(rosterNames).size === rosterNames.length;
   const noDupeQb = new Set(qb.filter(Boolean)).size === qb.filter(Boolean).length;
   const noDupeK = new Set(k.filter(Boolean)).size === k.filter(Boolean).length;
-  const canSubmit = allSlotsFilled && !overCap && noDupePlayers && noDupeQb && noDupeK && !submitting;
+  const pinValid = !pin.trim() || /^\d{4,}$/.test(pin.trim());
+  const canSubmit = allSlotsFilled && !overCap && noDupePlayers && noDupeQb && noDupeK && pinValid && !submitting;
 
   const entryFromRow = (entry) => {
     setQb([entry.qb1 || "", entry.qb2 || ""]);
@@ -836,6 +853,8 @@ function NFLEntryForm() {
     setPlayers([1,2,3,4,5,6].map(i => entry["player"+i] || ""));
     setSwap(entry.swap || "");
     setTeamName(entry.teamName || "");
+    setExistingPinHash(entry.pinHash || "");
+    setPin("");
   };
 
   const handleLookup = () => {
@@ -857,26 +876,47 @@ function NFLEntryForm() {
   };
 
   const handleChooseEdit = (entry) => {
+    if (entry.pinHash) {
+      setPendingEditEntry(entry); setPinVerifyInput(""); setPinVerifyError(""); setStep("pin");
+      return;
+    }
     setEntryNumber(entry.entryNumber || 1); setIsEditing(true);
     entryFromRow(entry); setStep("form");
+  };
+
+  const handleVerifyPin = async () => {
+    setPinVerifyError("");
+    if (!pinVerifyInput.trim()) { setPinVerifyError("Enter your PIN."); return; }
+    setPinVerifying(true);
+    const hash = await hashPin(pinVerifyInput.trim());
+    setPinVerifying(false);
+    if (hash === pendingEditEntry.pinHash) {
+      setEntryNumber(pendingEditEntry.entryNumber || 1); setIsEditing(true);
+      entryFromRow(pendingEditEntry); setStep("form");
+    } else {
+      setPinVerifyError("That PIN doesn't match. Try again, or contact Scott if you forgot it.");
+    }
   };
 
   const handleChooseNew = () => {
     setEntryNumber(existingEntries.length + 1); setIsEditing(false);
     setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap(""); setTeamName("");
+    setPin(""); setExistingPinHash("");
     setStep("form");
   };
 
   const displayName = (teamName.trim() || lookupName.trim());
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError("");
     if (!allSlotsFilled) { setError("Please fill every slot, including your Swap Player."); return; }
     if (!noDupeQb) { setError("Your two Team QB picks must be different teams."); return; }
     if (!noDupeK) { setError("Your two Team Kicker picks must be different teams."); return; }
     if (!noDupePlayers) { setError("Each player (including your Swap Player) must be different."); return; }
     if (overCap) { setError(`Your total is ${capUsed}, which is over the ${NFL_CAP} cap.`); return; }
+    if (!pinValid) { setError("PIN should be at least 4 digits (numbers only), or leave it blank."); return; }
     setSubmitting(true);
+    const finalPinHash = pin.trim() ? await hashPin(pin.trim()) : existingPinHash;
     const payload = {
       name: lookupName.trim(), email: lookupEmail.trim(), entryNumber,
       teamName: teamName.trim(),
@@ -884,6 +924,7 @@ function NFLEntryForm() {
       player1: players[0], player2: players[1], player3: players[2],
       player4: players[3], player5: players[4], player6: players[5],
       swap,
+      pinHash: finalPinHash,
     };
     fetch(NFL_SUBMIT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
       .then(() => { setSubmitted(true); setSubmitting(false); })
@@ -893,7 +934,8 @@ function NFLEntryForm() {
   const resetAll = () => {
     setStep("lookup"); setLookupEmail(""); setLookupName(""); setExistingEntries([]);
     setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap(""); setTeamName("");
-    setSubmitted(false); setError(""); setIsEditing(false);
+    setSubmitted(false); setError(""); setIsEditing(false); setMode("new");
+    setPin(""); setExistingPinHash(""); setPendingEditEntry(null); setPinVerifyInput(""); setPinVerifyError("");
   };
 
   const CapBar = () => (
@@ -950,8 +992,37 @@ function NFLEntryForm() {
           <div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>Entry fee: 50 units</div>
         </div>
       </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+        <button onClick={() => setMode("new")} style={{
+          padding:"16px 10px", borderRadius:8, cursor:"pointer", textAlign:"center",
+          background: mode==="new" ? "#00c4b4" : "#0a1a1a",
+          border: mode==="new" ? "2px solid #00c4b4" : "1px solid #1a3a3a",
+          color: mode==="new" ? "#000" : "#5fa89e",
+        }}>
+          <div style={{fontSize:22,marginBottom:4}}>🆕</div>
+          <div style={{fontFamily:"var(--F)",fontSize:15,letterSpacing:1}}>FIRST TIME</div>
+          <div style={{fontSize:11,marginTop:2,opacity:.85}}>Submit new picks</div>
+        </button>
+        <button onClick={() => setMode("edit")} style={{
+          padding:"16px 10px", borderRadius:8, cursor:"pointer", textAlign:"center",
+          background: mode==="edit" ? "#00c4b4" : "#0a1a1a",
+          border: mode==="edit" ? "2px solid #00c4b4" : "1px solid #1a3a3a",
+          color: mode==="edit" ? "#000" : "#5fa89e",
+        }}>
+          <div style={{fontSize:22,marginBottom:4}}>✏️</div>
+          <div style={{fontFamily:"var(--F)",fontSize:15,letterSpacing:1}}>RETURNING</div>
+          <div style={{fontSize:11,marginTop:2,opacity:.85}}>Edit my picks</div>
+        </button>
+      </div>
+
       <div className="form-section">
-        <div className="form-section-hdr"><span><span className="num">01 - </span>GET STARTED</span></div>
+        <div className="form-section-hdr"><span><span className="num">01 - </span>{mode==="edit" ? "FIND YOUR ENTRY" : "GET STARTED"}</span></div>
+        {mode==="edit" && (
+          <div style={{padding:"14px 20px 0",fontSize:13,color:"#5fa89e",lineHeight:1.6}}>
+            Enter the same name and email you used when you submitted, and we'll pull up your picks so you can change them.
+          </div>
+        )}
         <div className="form-group">
           <label className="form-label">Your Name</label>
           <input className="form-input" placeholder="First and last name" value={lookupName} onChange={e => setLookupName(e.target.value)} />
@@ -962,11 +1033,39 @@ function NFLEntryForm() {
         </div>
         {lookupError && <div className="error-msg" style={{margin:"0 20px 16px"}}>{lookupError}</div>}
         <div style={{padding:"16px 20px"}}>
-          <button className="submit-btn" onClick={handleLookup} disabled={lookupLoading}>{lookupLoading ? "CHECKING..." : "CONTINUE"}</button>
+          <button className="submit-btn" onClick={handleLookup} disabled={lookupLoading}>
+            {lookupLoading ? "CHECKING..." : mode==="edit" ? "FIND MY PICKS" : "CONTINUE"}
+          </button>
         </div>
       </div>
       <div style={{padding:"14px 18px",background:"#000",border:"2px solid #fff",borderRadius:8,fontSize:13,color:"#5fa89e",lineHeight:1.7}}>
         By submitting you agree to pay the <strong style={{color:"#fff"}}>50-unit entry fee</strong>. Payment can be sent through Zelle — contact Scott directly for details. Once the season starts, pool entries will be announced on this site. Thanks for joining and good luck!
+      </div>
+    </div>
+  );
+
+  if (step === "pin") return (
+    <div style={{maxWidth:440,margin:"0 auto"}}>
+      <div className="form-section">
+        <div className="form-section-hdr"><span>🔒 ENTER YOUR PIN</span></div>
+        <div style={{padding:20}}>
+          <div style={{fontSize:14,color:"#5fa89e",marginBottom:16,lineHeight:1.6}}>
+            {pendingEditEntry?.teamName || "This entry"} is protected with a PIN. Enter it to edit these picks.
+          </div>
+          <input
+            className="form-input" type="password" inputMode="numeric" placeholder="4-digit PIN"
+            value={pinVerifyInput} onChange={e => setPinVerifyInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleVerifyPin()}
+            style={{textAlign:"center",fontSize:24,letterSpacing:6}}
+          />
+          {pinVerifyError && <div className="error-msg" style={{marginTop:12}}>{pinVerifyError}</div>}
+          <button className="submit-btn" style={{marginTop:16}} onClick={handleVerifyPin} disabled={pinVerifying}>
+            {pinVerifying ? "CHECKING..." : "UNLOCK"}
+          </button>
+          <div style={{textAlign:"center",marginTop:14}}>
+            <button onClick={() => setStep("choose")} style={{background:"transparent",border:"none",color:"#5fa89e",cursor:"pointer",fontSize:13,textDecoration:"underline"}}>Back</button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -982,6 +1081,7 @@ function NFLEntryForm() {
           {existingEntries.map((entry, i) => (
             <div key={i} style={{background:"#0a1a1a",border:"1px solid #fff",borderRadius:8,padding:16,marginBottom:12}}>
               <div style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4",marginBottom:2,letterSpacing:1}}>
+                {entry.pinHash && <span style={{marginRight:6}}>🔒</span>}
                 {entry.teamName ? entry.teamName : "ENTRY " + (entry.entryNumber || i+1)}
               </div>
               {entry.teamName && <div style={{fontSize:11,color:"#5fa89e",marginBottom:8}}>Entry {entry.entryNumber || i+1}</div>}
@@ -1024,6 +1124,21 @@ function NFLEntryForm() {
           <input className="form-input" placeholder="e.g. The Gridiron Gurus" value={teamName} onChange={e => setTeamName(e.target.value)} maxLength={40} />
           <div style={{fontSize:12,color:"#5fa89e",marginTop:8}}>
             This is what shows up on the site. Leave it blank and we'll just use your name ({lookupName || "your name"}) instead.
+          </div>
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-hdr"><span>🔒 {existingPinHash ? "CHANGE PIN" : "SET A PIN"} <span style={{color:"#5fa89e",fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></span></div>
+        <div style={{padding:20}}>
+          <input
+            className="form-input" type="password" inputMode="numeric" placeholder="4-digit PIN" maxLength={8}
+            value={pin} onChange={e => setPin(e.target.value)} style={{maxWidth:200}}
+          />
+          <div style={{fontSize:12,color:"#5fa89e",marginTop:8,lineHeight:1.6}}>
+            {existingPinHash
+              ? "Leave blank to keep your current PIN. Enter a new one to change it."
+              : "Protects your picks from being changed by someone else. We never store the actual PIN — only a scrambled version we can check it against."}
           </div>
         </div>
       </div>
@@ -1107,7 +1222,7 @@ function NFLEntryForm() {
       {error && <div className="error-msg">{error}</div>}
       <div className="form-section" style={{padding:20}}>
         <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
-          {submitting ? "SAVING..." : canSubmit ? (isEditing ? "SAVE CHANGES" : "SUBMIT MY PICKS") : overCap ? "OVER SALARY CAP" : "COMPLETE ALL SLOTS"}
+          {submitting ? "SAVING..." : canSubmit ? (isEditing ? "SAVE CHANGES" : "SUBMIT MY PICKS") : overCap ? "OVER SALARY CAP" : !pinValid ? "PIN MUST BE 4+ DIGITS" : "COMPLETE ALL SLOTS"}
         </button>
       </div>
     </div>
