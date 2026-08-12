@@ -14,6 +14,11 @@ const SUBMIT_URL = "https://script.google.com/macros/s/AKfycbwNOAIXeCzELix1DTOBK
 // NFL Derby: paste the Apps Script Web App URL for a NEW Google Sheet tab here once set up (see chat notes).
 // Expected columns: timestamp, name, email, entryNumber, qb1, qb2, k1, k2, player1..player6, swap
 const NFL_SUBMIT_URL = "https://script.google.com/macros/s/AKfycbyhAit22Rp_L5z-yDunYnqLR5MocD4T7nfRWgWXy-oaUvBFJUFhpOs7RL6BSldjl4NE/exec";
+// Standings need to read ALL entries at once, which is cheaper as a published CSV than
+// hitting the Apps Script per viewer. Publish the same entries Sheet to the web as CSV
+// (File > Share > Publish to web > this sheet > CSV) and paste that link here.
+const NFL_ENTRIES_CSV_URL = "";
+const NFL_SEASON_YEAR = 2026;
 const DEADLINE = new Date("2026-06-11T15:00:00");
 const NFL_DEADLINE = new Date("2026-09-09T20:00:00-04:00");
 
@@ -107,6 +112,28 @@ function parseSubmissions(text) {
     subs.push(entry);
   }
   return subs;
+}
+
+function parseNflEntriesCSV(text) {
+  const lines = text.split("\n").filter(l => l.trim() !== "");
+  if (lines.length < 2) return [];
+  const splitRow = (r) => {
+    const cells = []; let cur = ""; let inQ = false;
+    for (let c of r) {
+      if (c === '"') inQ = !inQ;
+      else if (c === "," && !inQ) { cells.push(cur.trim()); cur = ""; }
+      else cur += c;
+    }
+    cells.push(cur.trim());
+    return cells;
+  };
+  const headers = splitRow(lines[0]).map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const cells = splitRow(line);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (cells[i] || "").trim(); });
+    return obj;
+  }).filter(e => e.email);
 }
 
 function parseScores(text) {
@@ -292,6 +319,70 @@ const NFL_PLAYER_POOL = [
   {name:"Jake Tonges",team:"SF",tds:5},{name:"Tre Tucker",team:"LV",tds:5},{name:"Kenneth Walker III",team:"KC",tds:5},
   {name:"Tyler Warren",team:"IND",tds:5},
 ];
+
+// ── NFL DERBY SCORING HELPERS (inline -- this app is single-file, no local imports) ──
+const NFL_PERIODS = {
+  "Period 1": [1,2,3,4],
+  "Period 2": [5,6,7,8],
+  "Period 3": [9,10,11,12,13],
+  "Period 4": [14,15,16,17,18],
+};
+
+function weeksThroughPeriod(periodName) {
+  const order = ["Period 1","Period 2","Period 3","Period 4"];
+  const idx = order.indexOf(periodName);
+  if (idx === -1) return [];
+  return order.slice(0, idx+1).flatMap(p => NFL_PERIODS[p]);
+}
+
+async function fetchWeeksStats(weeks, year) {
+  const results = await Promise.all(
+    weeks.map(w => fetch(`/api/nfl-week?week=${w}&year=${year}`).then(r => r.json()))
+  );
+  const teams = {}, players = {};
+  const bump = (obj, key, field, amount) => {
+    if (!amount) return;
+    if (!obj[key]) obj[key] = {};
+    obj[key][field] = (obj[key][field] || 0) + amount;
+  };
+  for (const wk of results) {
+    for (const [team, s] of Object.entries(wk.teams || {})) {
+      bump(teams, team, "passingTD", s.passingTD || 0);
+      bump(teams, team, "fgMade", s.fgMade || 0);
+    }
+    for (const [name, s] of Object.entries(wk.players || {})) {
+      bump(players, name, "rushTD", s.rushTD || 0);
+      bump(players, name, "recTD", s.recTD || 0);
+    }
+  }
+  for (const name of Object.keys(players)) {
+    players[name].totalTD = (players[name].rushTD||0) + (players[name].recTD||0);
+  }
+  return {teams, players};
+}
+
+function fetchPeriodStats(periodName, year) {
+  const weeks = periodName === "Overall" ? weeksThroughPeriod("Period 4") : NFL_PERIODS[periodName];
+  return fetchWeeksStats(weeks, year);
+}
+
+function scoreRoster(roster, stats) {
+  let total = 0;
+  const breakdown = [];
+  for (const teamName of roster.qb || []) {
+    const pts = (stats.teams[teamName]?.passingTD || 0) * 6;
+    total += pts; breakdown.push({slot:"QB", name:teamName, pts});
+  }
+  for (const teamName of roster.k || []) {
+    const pts = (stats.teams[teamName]?.fgMade || 0) * 3;
+    total += pts; breakdown.push({slot:"K", name:teamName, pts});
+  }
+  for (const playerName of roster.skill || []) {
+    const pts = (stats.players[playerName]?.totalTD || 0) * 6;
+    total += pts; breakdown.push({slot:"Skill", name:playerName, pts});
+  }
+  return {total, breakdown};
+}
 
 const S = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -1023,6 +1114,114 @@ function NFLEntryForm() {
   );
 }
 
+// ── NFL STANDINGS ─────────────────────────────────────────────────────────────
+const NFL_PERIOD_TABS = ["Period 1","Period 2","Period 3","Period 4","Overall"];
+const NFL_PERIOD_SUBLABEL = {
+  "Period 1":"Weeks 1-4", "Period 2":"Weeks 5-8", "Period 3":"Weeks 9-13",
+  "Period 4":"Weeks 14-18", "Overall":"Full Season",
+};
+
+function NFLStandings() {
+  const [period, setPeriod] = useState("Overall");
+  const [entries, setEntries] = useState(null);
+  const [entriesErr, setEntriesErr] = useState("");
+  const [stats, setStats] = useState(null);
+  const [statsErr, setStatsErr] = useState("");
+  const [expanded, setExpanded] = useState(null);
+
+  useEffect(() => {
+    if (!NFL_ENTRIES_CSV_URL) { setEntriesErr("Standings aren't connected yet."); return; }
+    fetch(NFL_ENTRIES_CSV_URL).then(r => r.text()).then(t => setEntries(parseNflEntriesCSV(t)))
+      .catch(() => setEntriesErr("Could not load entries."));
+  }, []);
+
+  useEffect(() => {
+    setStats(null); setStatsErr("");
+    fetchPeriodStats(period, NFL_SEASON_YEAR)
+      .then(setStats)
+      .catch(() => setStatsErr("Could not load stats for this period yet."));
+  }, [period]);
+
+  const leaderboard = (entries && stats) ? entries.map(e => {
+    const roster = {
+      qb: [e.qb1, e.qb2], k: [e.k1, e.k2],
+      skill: [e.player1, e.player2, e.player3, e.player4, e.player5, e.player6],
+    };
+    const {total, breakdown} = scoreRoster(roster, stats);
+    const displayName = (e.teamName && e.teamName.trim()) || e.name || "Unnamed";
+    return {...e, displayName, total, breakdown};
+  }).sort((a,b) => b.total - a.total) : [];
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:16,paddingBottom:2}}>
+        {NFL_PERIOD_TABS.map(p => (
+          <button key={p} onClick={() => { setPeriod(p); setExpanded(null); }}
+            style={{
+              flex:"0 0 auto", padding:"10px 16px", borderRadius:6, cursor:"pointer",
+              fontFamily:"var(--F)", fontSize:15, letterSpacing:1, whiteSpace:"nowrap",
+              background: period===p ? "#00c4b4" : "#0a1a1a",
+              color: period===p ? "#000" : "#5fa89e",
+              border: period===p ? "2px solid #00c4b4" : "1px solid #1a3a3a",
+            }}>
+            {p==="Overall" ? "OVERALL" : p.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      <div style={{fontSize:12,color:"#5fa89e",marginBottom:16}}>{NFL_PERIOD_SUBLABEL[period]}</div>
+
+      {entriesErr && <div className="error-msg">{entriesErr}</div>}
+      {!entriesErr && !entries && <div style={{color:"#5fa89e",padding:20}}>Loading entries...</div>}
+      {statsErr && <div className="error-msg">{statsErr}</div>}
+
+      {entries && stats && (
+        <div className="card">
+          <div className="chdr">
+            NFL Derby - {period}
+            <span style={{marginLeft:"auto",fontSize:12,fontFamily:"var(--B)",color:"#5fa89e",fontWeight:400}}>
+              Click a name for the roster breakdown
+            </span>
+          </div>
+          {leaderboard.length === 0 && <div style={{padding:20,color:"#5fa89e"}}>No entries yet.</div>}
+          {leaderboard.map((e, i) => (
+            <div key={e.email + e.entryNumber}>
+              <div
+                onClick={() => setExpanded(expanded === i ? null : i)}
+                style={{
+                  display:"flex", alignItems:"center", gap:12, padding:"14px 20px",
+                  borderTop: i>0 ? "1px solid #1a2a2a" : "none", cursor:"pointer",
+                }}
+              >
+                <div style={{
+                  width:28, height:28, borderRadius:"50%", display:"flex", alignItems:"center",
+                  justifyContent:"center", fontFamily:"var(--F)", fontSize:14,
+                  background: i===0?"#00c4b4":i===1?"#c0c0c0":i===2?"#cd7f32":"#1a2a2a",
+                  color: i<3 ? "#000" : "#5fa89e",
+                }}>{i+1}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600}}>{e.displayName}</div>
+                  {e.teamName && <div style={{fontSize:12,color:"#5fa89e"}}>{e.name}</div>}
+                </div>
+                <div style={{fontFamily:"var(--F)",fontSize:22,color:"#00c4b4"}}>{e.total}</div>
+              </div>
+              {expanded === i && (
+                <div style={{padding:"0 20px 16px 60px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {e.breakdown.map((b,j) => (
+                    <div key={j} className="breakdown-cell">
+                      <span style={{fontSize:12,color:"#5fa89e"}}>{b.slot}: {b.name}</span>
+                      <span style={{fontSize:13,fontWeight:700}}>{b.pts}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── WORLD CUP PAGE ────────────────────────────────────────────────────────────
 function WorldCup({submissions, wcScores, wcScorers}) {
   const isLocked = new Date() >= DEADLINE;
@@ -1694,6 +1893,29 @@ function HRDerby({allData}) {
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function NFLCountdownMini() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const diff = NFL_DEADLINE - now;
+  if (diff <= 0) return null;
+  const d = Math.floor(diff/86400000), h = Math.floor(diff/3600000)%24;
+  const m = Math.floor(diff/60000)%60, s = Math.floor(diff/1000)%60;
+  const cell = (v,l) => (
+    <div key={l} style={{textAlign:"center"}}>
+      <div style={{fontFamily:"var(--F)",fontSize:20,color:"#ffd700",lineHeight:1}}>{String(v).padStart(2,"0")}</div>
+      <div style={{fontSize:9,color:"#5fa89e",letterSpacing:1}}>{l}</div>
+    </div>
+  );
+  return (
+    <div style={{display:"flex",gap:12,justifyContent:"flex-start",marginTop:2}}>
+      {cell(d,"DAYS")}{cell(h,"HRS")}{cell(m,"MIN")}{cell(s,"SEC")}
+    </div>
+  );
+}
+
 function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   const [showNflRules, setShowNflRules] = useState(false);
   const cur = allData["august"] || allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
@@ -1740,6 +1962,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Entry</span><span className="dsv">$50</span></div>
             <div className="dsr"><span className="dsl">Picks Due</span><span className="dsv">Sep 9, 2026 - 8:00 PM ET</span></div>
+            {new Date() < NFL_DEADLINE && <NFLCountdownMini/>}
             <div className="dsr" style={{marginBottom:8}}>
               <span
                 onClick={(e) => { e.stopPropagation(); setShowNflRules(v => !v); }}
@@ -1953,7 +2176,7 @@ export default function App() {
           {tab==="dashboard" && <Dashboard setTab={setTab} allData={allData} updatedAt={updatedAt} submissions={submissions} wcScores={wcScores}/>}
           {tab==="hr" && <HRDerby allData={allData}/>}
           {tab==="wc" && <WorldCup submissions={submissions} wcScores={wcScores} wcScorers={wcScorers}/>}
-          {tab==="nfl" && <NFLEntryForm/>}
+          {tab==="nfl" && (new Date() < NFL_DEADLINE ? <NFLEntryForm/> : <NFLStandings/>)}
         </main>
       </div>
     </>
