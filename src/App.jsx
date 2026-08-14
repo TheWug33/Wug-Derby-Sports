@@ -829,6 +829,26 @@ function NFLEntryForm() {
   const [pinVerifyInput, setPinVerifyInput] = useState("");
   const [pinVerifyError, setPinVerifyError] = useState("");
   const [pinVerifying, setPinVerifying] = useState(false);
+  const [knownEntries, setKnownEntries] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (!NFL_ENTRIES_CSV_URL) return;
+    fetch(NFL_ENTRIES_CSV_URL).then(r => r.text()).then(t => {
+      const rows = parseNflEntriesCSV(t);
+      const seen = new Set();
+      const unique = [];
+      for (const r of rows) {
+        const key = (r.email || "").toLowerCase();
+        if (key && !seen.has(key)) { seen.add(key); unique.push({name: r.name, email: r.email}); }
+      }
+      setKnownEntries(unique);
+    }).catch(() => {}); // autocomplete is a nicety -- fail silently, the form still works without it
+  }, []);
+
+  const nameSuggestions = lookupName.trim().length >= 2
+    ? knownEntries.filter(e => e.name.toLowerCase().includes(lookupName.trim().toLowerCase())).slice(0, 5)
+    : [];
 
   const qbSalary = (t) => NFL_QB_TEAMS.find(x => x.team === t)?.tds || 0;
   const kSalary = (t) => NFL_KICKER_TEAMS.find(x => x.team === t)?.pts || 0;
@@ -857,13 +877,15 @@ function NFLEntryForm() {
     setPin("");
   };
 
-  const handleLookup = () => {
+  const handleLookup = (nameOverride, emailOverride) => {
+    const useName = nameOverride ?? lookupName;
+    const useEmail = emailOverride ?? lookupEmail;
     setLookupError("");
-    if (!lookupName.trim()) { setLookupError("Please enter your name."); return; }
-    if (!lookupEmail.trim() || !lookupEmail.includes("@")) { setLookupError("Please enter a valid email."); return; }
+    if (!useName.trim()) { setLookupError("Please enter your name."); return; }
+    if (!useEmail.trim() || !useEmail.includes("@")) { setLookupError("Please enter a valid email."); return; }
     if (!NFL_SUBMIT_URL) { setLookupError("Picks aren't connected yet — check back soon."); return; }
     setLookupLoading(true);
-    fetch(NFL_SUBMIT_URL + "?email=" + encodeURIComponent(lookupEmail.trim()))
+    fetch(NFL_SUBMIT_URL + "?email=" + encodeURIComponent(useEmail.trim()))
       .then(r => r.json())
       .then(data => {
         const entries = data.submissions || [];
@@ -873,6 +895,11 @@ function NFLEntryForm() {
         else { setStep("choose"); }
       })
       .catch(() => { setLookupError("Could not check entries. Try again."); setLookupLoading(false); });
+  };
+
+  const handleSelectSuggestion = (entry) => {
+    setLookupName(entry.name); setLookupEmail(entry.email); setShowSuggestions(false);
+    handleLookup(entry.name, entry.email);
   };
 
   const handleChooseEdit = (entry) => {
@@ -1023,9 +1050,35 @@ function NFLEntryForm() {
             Enter the same name and email you used when you submitted, and we'll pull up your picks so you can change them.
           </div>
         )}
-        <div className="form-group">
+        <div className="form-group" style={{position:"relative"}}>
           <label className="form-label">Your Name</label>
-          <input className="form-input" placeholder="First and last name" value={lookupName} onChange={e => setLookupName(e.target.value)} />
+          <input
+            className="form-input" placeholder="First and last name" value={lookupName}
+            onChange={e => { setLookupName(e.target.value); setShowSuggestions(true); }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            autoComplete="off"
+          />
+          {showSuggestions && nameSuggestions.length > 0 && (
+            <div style={{
+              position:"absolute", top:"100%", left:0, right:0, zIndex:10, marginTop:4,
+              background:"#0a1a1a", border:"1px solid #00c4b4", borderRadius:6, overflow:"hidden",
+            }}>
+              {nameSuggestions.map((s, i) => (
+                <div
+                  key={s.email}
+                  onMouseDown={() => handleSelectSuggestion(s)}
+                  style={{
+                    padding:"10px 14px", cursor:"pointer", fontSize:14,
+                    borderTop: i>0 ? "1px solid #1a3a3a" : "none",
+                  }}
+                >
+                  <div style={{color:"#fff"}}>{s.name}</div>
+                  <div style={{color:"#5fa89e",fontSize:12}}>{s.email}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="form-group">
           <label className="form-label">Email Address</label>
