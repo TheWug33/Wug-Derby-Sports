@@ -1189,9 +1189,6 @@ function NFLEntryForm() {
                 {entry.teamName ? entry.teamName : "ENTRY " + (entry.entryNumber || i+1)}
               </div>
               {entry.teamName && <div style={{fontSize:11,color:"#5fa89e",marginBottom:8}}>Entry {entry.entryNumber || i+1}</div>}
-              <div style={{fontSize:12,color:"#5fa89e",marginBottom:12}}>
-                QB: {entry.qb1}, {entry.qb2} — K: {entry.k1}, {entry.k2} — Swap: {entry.swap || "—"}
-              </div>
               <button className="submit-btn" style={{fontSize:16,padding:12}} onClick={() => handleChooseEdit(entry)}>EDIT THIS ENTRY</button>
             </div>
           ))}
