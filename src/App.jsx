@@ -831,6 +831,8 @@ function NFLEntryForm() {
   const [pinVerifying, setPinVerifying] = useState(false);
   const [knownEntries, setKnownEntries] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [saveWarning, setSaveWarning] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (!NFL_ENTRIES_CSV_URL) return;
@@ -935,7 +937,7 @@ function NFLEntryForm() {
   const displayName = (teamName.trim() || lookupName.trim());
 
   const handleSubmit = async () => {
-    setError("");
+    setError(""); setSaveWarning("");
     if (!allSlotsFilled) { setError("Please fill every slot, including your Swap Player."); return; }
     if (!noDupeQb) { setError("Your two Team QB picks must be different teams."); return; }
     if (!noDupeK) { setError("Your two Team Kicker picks must be different teams."); return; }
@@ -954,8 +956,39 @@ function NFLEntryForm() {
       pinHash: finalPinHash,
     };
     fetch(NFL_SUBMIT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
-      .then(() => { setSubmitted(true); setSubmitting(false); })
+      .then(() => verifySave(payload))
       .catch(() => { setError("Something went wrong. Please try again."); setSubmitting(false); });
+  };
+
+  // A no-cors POST can't tell us if it actually worked, or if the Sheet is missing a
+  // column that quietly swallows a field (exactly what happened with pinHash before).
+  // So immediately re-fetch and check every field actually landed as sent.
+  const verifySave = async (payload) => {
+    setVerifying(true);
+    const fieldLabels = {
+      teamName:"Team Name", qb1:"Team QB 1", qb2:"Team QB 2", k1:"Team Kicker 1", k2:"Team Kicker 2",
+      player1:"Player 1", player2:"Player 2", player3:"Player 3", player4:"Player 4",
+      player5:"Player 5", player6:"Player 6", swap:"Swap Player", pinHash:"PIN",
+    };
+    try {
+      const res = await fetch(NFL_SUBMIT_URL + "?email=" + encodeURIComponent(payload.email));
+      const data = await res.json();
+      const saved = (data.submissions || []).find(e => Number(e.entryNumber) === Number(payload.entryNumber));
+      if (!saved) {
+        setSaveWarning("We couldn't confirm your picks were saved. Please check back in a minute, and let Scott know if they're still missing.");
+      } else {
+        const mismatched = Object.keys(fieldLabels).filter(k => (payload[k] || "") !== (saved[k] || ""));
+        if (mismatched.length > 0) {
+          setSaveWarning(
+            `Everything else saved, but ${mismatched.map(k => fieldLabels[k]).join(", ")} didn't. ` +
+            `This usually means a column is missing from the sheet — let Scott know so it can be fixed, then try saving that part again.`
+          );
+        }
+      }
+    } catch {
+      setSaveWarning("We couldn't confirm your picks were saved. Please check back in a minute, and let Scott know if they're still missing.");
+    }
+    setVerifying(false); setSubmitted(true); setSubmitting(false);
   };
 
   const resetAll = () => {
@@ -963,6 +996,7 @@ function NFLEntryForm() {
     setQb(["",""]); setK(["",""]); setPlayers(["","","","","",""]); setSwap(""); setTeamName("");
     setSubmitted(false); setError(""); setIsEditing(false); setMode("new");
     setPin(""); setExistingPinHash(""); setPendingEditEntry(null); setPinVerifyInput(""); setPinVerifyError("");
+    setSaveWarning("");
   };
 
   const CapBar = () => (
@@ -990,9 +1024,26 @@ function NFLEntryForm() {
 
   if (submitted) return (
     <div className="success-screen">
-      <div className="success-icon">{isEditing ? "✏️" : "🏈"}</div>
-      <div className="success-title">{isEditing ? "PICKS UPDATED!" : "YOU'RE IN!"}</div>
+      {saveWarning ? (
+        <>
+          <div className="success-icon">⚠️</div>
+          <div className="success-title" style={{color:"#e84545"}}>SAVED, BUT CHECK THIS</div>
+        </>
+      ) : (
+        <>
+          <div className="success-icon">{isEditing ? "✏️" : "🏈"}</div>
+          <div className="success-title">{isEditing ? "PICKS UPDATED!" : "YOU'RE IN!"}</div>
+        </>
+      )}
       <div className="success-sub">{isEditing ? `Entry ${entryNumber} updated, ${lookupName.split(" ")[0]}!` : `Submitted! Good luck ${lookupName.split(" ")[0]}!`}</div>
+      {saveWarning && (
+        <div style={{
+          background:"rgba(232,69,69,.1)", border:"2px solid #e84545", borderRadius:8,
+          padding:"14px 18px", marginBottom:24, color:"#fff", fontSize:14, lineHeight:1.6, textAlign:"left",
+        }}>
+          {saveWarning}
+        </div>
+      )}
       <div className="picks-summary">
         <div style={{fontFamily:"var(--F)",fontSize:16,letterSpacing:1,color:"#00c4b4",marginBottom:12}}>YOUR ROSTER</div>
         <div className="picks-summary-row"><span className="picks-summary-label">Shown On Site As</span><span className="picks-summary-value">{displayName}</span></div>
@@ -1086,7 +1137,7 @@ function NFLEntryForm() {
         </div>
         {lookupError && <div className="error-msg" style={{margin:"0 20px 16px"}}>{lookupError}</div>}
         <div style={{padding:"16px 20px"}}>
-          <button className="submit-btn" onClick={handleLookup} disabled={lookupLoading}>
+          <button className="submit-btn" onClick={() => handleLookup()} disabled={lookupLoading}>
             {lookupLoading ? "CHECKING..." : mode==="edit" ? "FIND MY PICKS" : "CONTINUE"}
           </button>
         </div>
@@ -1275,7 +1326,7 @@ function NFLEntryForm() {
       {error && <div className="error-msg">{error}</div>}
       <div className="form-section" style={{padding:20}}>
         <button className="submit-btn" onClick={handleSubmit} disabled={!canSubmit}>
-          {submitting ? "SAVING..." : canSubmit ? (isEditing ? "SAVE CHANGES" : "SUBMIT MY PICKS") : overCap ? "OVER SALARY CAP" : !pinValid ? "PIN MUST BE 4+ DIGITS" : "COMPLETE ALL SLOTS"}
+          {verifying ? "VERIFYING..." : submitting ? "SAVING..." : canSubmit ? (isEditing ? "SAVE CHANGES" : "SUBMIT MY PICKS") : overCap ? "OVER SALARY CAP" : !pinValid ? "PIN MUST BE 4+ DIGITS" : "COMPLETE ALL SLOTS"}
         </button>
       </div>
     </div>
