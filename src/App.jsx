@@ -1188,7 +1188,7 @@ function NFLEntryForm() {
                 {entry.pinHash && <span style={{marginRight:6}}>🔒</span>}
                 {entry.teamName ? entry.teamName : "ENTRY " + (entry.entryNumber || i+1)}
               </div>
-              {entry.teamName && <div style={{fontSize:11,color:"#5fa89e",marginBottom:8}}>Entry {entry.entryNumber || i+1}</div>}
+              {entry.teamName && <div style={{fontSize:11,color:"#5fa89e",marginBottom:12}}>Entry {entry.entryNumber || i+1}</div>}
               <button className="submit-btn" style={{fontSize:16,padding:12}} onClick={() => handleChooseEdit(entry)}>EDIT THIS ENTRY</button>
             </div>
           ))}
@@ -2134,6 +2134,14 @@ function NFLCountdownMini() {
 
 function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   const [showNflRules, setShowNflRules] = useState(false);
+  const [nflEntryCount, setNflEntryCount] = useState(null);
+
+  useEffect(() => {
+    if (!NFL_ENTRIES_CSV_URL) return;
+    fetch(NFL_ENTRIES_CSV_URL).then(r => r.text()).then(t => {
+      setNflEntryCount(parseNflEntriesCSV(t).length);
+    }).catch(() => {}); // quietly stay blank if it fails -- not worth blocking the dashboard over
+  }, []);
   const cur = allData["august"] || allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
   const ss = cur.seasonStandings || [];
   const ms = cur.monthlyStandings || [];
@@ -2172,7 +2180,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
         <div className="dc" onClick={()=>setTab("nfl")}>
           <div className="dctop">
             <div className="dico">🏈</div>
-            <div><div className="dctitle">NFL Derby Pool</div><div className="dcsub">2026 NFL Season</div></div>
+            <div><div className="dctitle">NFL Derby Pool</div><div className="dcsub">2026 NFL Season{nflEntryCount !== null ? ` - ${nflEntryCount} ${nflEntryCount === 1 ? "Team" : "Teams"} Entered` : ""}</div></div>
             <span className={new Date()>=NFL_DEADLINE?"blive":"bsoon"} style={{marginLeft:"auto"}}>{new Date()>=NFL_DEADLINE?"LIVE":"OPEN"}</span>
           </div>
           <div className="dcbody">
