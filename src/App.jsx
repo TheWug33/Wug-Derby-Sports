@@ -1304,7 +1304,7 @@ function NFLEntryForm() {
 
       <div className="form-section">
         <div className="form-section-hdr"><span><span className="num">01 - </span>TEAM QB (pick 2)</span></div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))",gap:12,padding:20}}>
           {[0,1].map(i => (
             <div key={i}>
               <label className="nfl-slot-lbl">Team QB {i+1}</label>
@@ -1320,7 +1320,7 @@ function NFLEntryForm() {
 
       <div className="form-section">
         <div className="form-section-hdr"><span><span className="num">02 - </span>TEAM KICKER (pick 2)</span></div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))",gap:12,padding:20}}>
           {[0,1].map(i => (
             <div key={i}>
               <label className="nfl-slot-lbl">Team Kicker {i+1}</label>
@@ -1336,7 +1336,7 @@ function NFLEntryForm() {
 
       <div className="form-section">
         <div className="form-section-hdr"><span><span className="num">03 - </span>SKILL PLAYERS (pick 6)</span></div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))",gap:12,padding:20}}>
           {[0,1,2,3,4,5].map(i => (
             <div key={i}>
               <label className="nfl-slot-lbl">Player {i+1}</label>
