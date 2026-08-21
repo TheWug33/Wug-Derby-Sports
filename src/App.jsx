@@ -312,7 +312,7 @@ const NFL_PLAYER_POOL = [
   {name:"AJ Brown",team:"NE",tds:7},{name:"Rico Dowdle",team:"PIT",tds:7},{name:"Harold Fannin",team:"CLE",tds:7},
   {name:"Hunter Henry",team:"NE",tds:7},{name:"George Kittle",team:"SF",tds:7},{name:"Tetairoa McMillan",team:"CAR",tds:7},
   {name:"DK Metcalf",team:"PIT",tds:7},{name:"DJ Moore",team:"BUF",tds:7},{name:"Bhayshul Tuten",team:"JAX",tds:7},
-  {name:"Jameson Williams",team:"DET",tds:7},{name:"Michael Wilson",team:"ARI",tds:7},{name:"Romeo Doubs",team:"NE",tds:6},
+  {name:"Jameson Williams",team:"DET",tds:7},{name:"Michael Wilson",team:"ARI",tds:7},{name:"Romeo Doubs",team:"GB",tds:6},
   {name:"Emeka Egbuka",team:"TB",tds:6},{name:"Rashee Rice",team:"KC",tds:6},{name:"Mark Andrews",team:"BAL",tds:6},
   {name:"Kayshon Boutte",team:"NE",tds:6},{name:"Blake Corum",team:"LAR",tds:6},{name:"Zay Flowers",team:"BAL",tds:6},
   {name:"Jayden Higgins",team:"HOU",tds:6},{name:"Tucker Kraft",team:"GB",tds:6},{name:"Colston Loveland",team:"CHI",tds:6},
@@ -804,6 +804,62 @@ function WCEntryForm() {
 // ── NFL ENTRY FORM ────────────────────────────────────────────────────────────
 const NFL_CAP = 146;
 
+// A type-to-filter dropdown, since scrolling a 100-option native <select> on mobile is painful.
+// Still browsable without typing -- focusing shows the full list, typing narrows it.
+function SearchSelect({ options, value, onChange, excludeSet, placeholder }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const selected = options.find(o => o.value === value);
+  const filtered = query.trim()
+    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
+  return (
+    <div style={{position:"relative"}}>
+      <input
+        className="nfl-select"
+        placeholder={placeholder}
+        value={open ? query : (selected ? selected.label : "")}
+        onChange={e => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => { setQuery(""); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            const first = filtered.find(o => !(excludeSet.has(o.value) && o.value !== value));
+            if (first) { onChange(first.value); setOpen(false); setQuery(""); }
+          }
+        }}
+      />
+      {open && (
+        <div style={{
+          position:"absolute", top:"100%", left:0, right:0, zIndex:20, marginTop:4,
+          maxHeight:230, overflowY:"auto", background:"#0a1a1a", border:"1px solid #00c4b4", borderRadius:6,
+        }}>
+          {filtered.length === 0 && <div style={{padding:"10px 12px",color:"#5fa89e",fontSize:13}}>No matches</div>}
+          {filtered.map(o => {
+            const isExcluded = excludeSet.has(o.value) && o.value !== value;
+            return (
+              <div
+                key={o.value}
+                onMouseDown={() => { if (!isExcluded) { onChange(o.value); setOpen(false); setQuery(""); } }}
+                style={{
+                  padding:"10px 12px", fontSize:14, borderTop:"1px solid #1a3a3a",
+                  cursor: isExcluded ? "default" : "pointer",
+                  color: isExcluded ? "#3a5a5a" : (o.value === value ? "#00c4b4" : "#fff"),
+                  background: o.value === value ? "rgba(0,196,180,.08)" : "transparent",
+                }}
+              >
+                {o.label}{isExcluded ? " — already picked" : ""}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NFLEntryForm() {
   const isOpen = new Date() < NFL_DEADLINE;
   const [step, setStep] = useState("lookup");
@@ -1252,14 +1308,11 @@ function NFLEntryForm() {
           {[0,1].map(i => (
             <div key={i}>
               <label className="nfl-slot-lbl">Team QB {i+1}</label>
-              <select className="nfl-select" value={qb[i]} onChange={e => setQb(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}>
-                <option value="">Select a team</option>
-                {NFL_QB_TEAMS.map(t => (
-                  <option key={t.team} value={t.team} disabled={pickedQbSet.has(t.team) && qb[i] !== t.team}>
-                    {t.team} ({t.tds})
-                  </option>
-                ))}
-              </select>
+              <SearchSelect
+                options={NFL_QB_TEAMS.map(t => ({value: t.team, label: `${t.team} (${t.tds})`}))}
+                value={qb[i]} onChange={v => setQb(prev => { const n=[...prev]; n[i]=v; return n; })}
+                excludeSet={pickedQbSet} placeholder="Search teams..."
+              />
             </div>
           ))}
         </div>
@@ -1271,14 +1324,11 @@ function NFLEntryForm() {
           {[0,1].map(i => (
             <div key={i}>
               <label className="nfl-slot-lbl">Team Kicker {i+1}</label>
-              <select className="nfl-select" value={k[i]} onChange={e => setK(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}>
-                <option value="">Select a team</option>
-                {NFL_KICKER_TEAMS.map(t => (
-                  <option key={t.team} value={t.team} disabled={pickedKSet.has(t.team) && k[i] !== t.team}>
-                    {t.team} ({t.pts})
-                  </option>
-                ))}
-              </select>
+              <SearchSelect
+                options={NFL_KICKER_TEAMS.map(t => ({value: t.team, label: `${t.team} (${t.pts})`}))}
+                value={k[i]} onChange={v => setK(prev => { const n=[...prev]; n[i]=v; return n; })}
+                excludeSet={pickedKSet} placeholder="Search teams..."
+              />
             </div>
           ))}
         </div>
@@ -1290,14 +1340,12 @@ function NFLEntryForm() {
           {[0,1,2,3,4,5].map(i => (
             <div key={i}>
               <label className="nfl-slot-lbl">Player {i+1}</label>
-              <select className="nfl-select" value={players[i]} onChange={e => setPlayers(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}>
-                <option value="">Select a player</option>
-                {NFL_PLAYER_POOL.map(p => (
-                  <option key={p.name} value={p.name} disabled={(pickedPlayerSet.has(p.name) && players[i] !== p.name) || p.name === swap}>
-                    {p.name} ({p.team}, {p.tds})
-                  </option>
-                ))}
-              </select>
+              <SearchSelect
+                options={NFL_PLAYER_POOL.map(p => ({value: p.name, label: `${p.name} (${p.team}, ${p.tds})`}))}
+                value={players[i]} onChange={v => setPlayers(prev => { const n=[...prev]; n[i]=v; return n; })}
+                excludeSet={swap ? new Set([...pickedPlayerSet, swap]) : pickedPlayerSet}
+                placeholder="Search players..."
+              />
             </div>
           ))}
         </div>
@@ -1309,14 +1357,11 @@ function NFLEntryForm() {
           <div style={{fontSize:12,color:"#5fa89e",marginBottom:10}}>
             Designate a 7th player who can replace one of your 6 before Week 9. Doesn't count toward your salary cap now — but can't push you over 146 at the time you swap him in.
           </div>
-          <select className="nfl-select" value={swap} onChange={e => setSwap(e.target.value)}>
-            <option value="">Select a player</option>
-            {NFL_PLAYER_POOL.map(p => (
-              <option key={p.name} value={p.name} disabled={pickedPlayerSet.has(p.name) && swap !== p.name}>
-                {p.name} ({p.team}, {p.tds})
-              </option>
-            ))}
-          </select>
+          <SearchSelect
+            options={NFL_PLAYER_POOL.map(p => ({value: p.name, label: `${p.name} (${p.team}, ${p.tds})`}))}
+            value={swap} onChange={setSwap}
+            excludeSet={pickedPlayerSet} placeholder="Search players..."
+          />
         </div>
       </div>
 
