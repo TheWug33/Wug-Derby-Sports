@@ -1300,6 +1300,20 @@ function NFLEntryForm() {
         </div>
       </div>
 
+      <div style={{
+        position:"fixed", bottom:18, right:14, zIndex:50,
+        background: overCap ? "#e84545" : "#0a1a1a",
+        border:`2px solid ${overCap ? "#e84545" : "#00c4b4"}`,
+        borderRadius:22, padding:"9px 16px",
+        boxShadow:"0 4px 14px rgba(0,0,0,.5)",
+        fontFamily:"var(--F)", fontSize:15, letterSpacing:1,
+        color: overCap ? "#fff" : "#00c4b4",
+        display:"flex", alignItems:"center", gap:6,
+      }}>
+        <span style={{fontSize:11,opacity:.75,fontFamily:"var(--B)",letterSpacing:0}}>SALARY</span>
+        {capUsed} / {NFL_CAP}
+      </div>
+
       <CapBar/>
 
       <div className="form-section">
