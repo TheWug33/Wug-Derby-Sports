@@ -824,12 +824,20 @@ function SearchSelect({ options, value, onChange, excludeSet, placeholder }) {
 
   const handleOpen = () => {
     setQuery(""); setOpen(true);
-    if (inputRef.current) {
-      // If the field sits in the lower part of the screen, the keyboard is about to eat
-      // most of the space below it -- open the list upward instead so it's actually usable.
+    // The keyboard hasn't appeared yet at the instant of focus, so a field that looks
+    // "middle of screen" right now can end up with almost no room once it has. Measure
+    // against the actual visible area (which visualViewport reflects once the keyboard
+    // is up) and re-check shortly after, once the keyboard's animation has settled.
+    const measure = () => {
+      if (!inputRef.current) return;
       const rect = inputRef.current.getBoundingClientRect();
-      setOpenUp(rect.top > window.innerHeight * 0.42);
-    }
+      const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setOpenUp(spaceBelow < 220 && spaceAbove > spaceBelow);
+    };
+    measure();
+    setTimeout(measure, 300);
   };
 
   return (
