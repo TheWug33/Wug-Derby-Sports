@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const JUNE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=966793280&single=true&output=csv";
 const JULY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=356880675&single=true&output=csv";
@@ -806,23 +806,41 @@ const NFL_CAP = 146;
 
 // A type-to-filter dropdown, since scrolling a 100-option native <select> on mobile is painful.
 // Still browsable without typing -- focusing shows the full list, typing narrows it.
+// Treats curly and straight apostrophes as the same character -- iOS autocorrect
+// silently converts ' to ' as you type, which would otherwise break matching on
+// names like Ja'Marr Chase or De'Von Achane.
+const normApostrophe = (s) => s.toLowerCase().replace(/[\u2018\u2019]/g, "'");
+
 function SearchSelect({ options, value, onChange, excludeSet, placeholder }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
+  const inputRef = useRef(null);
 
   const selected = options.find(o => o.value === value);
   const filtered = query.trim()
-    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    ? options.filter(o => normApostrophe(o.label).includes(normApostrophe(query.trim())))
     : options;
+
+  const handleOpen = () => {
+    setQuery(""); setOpen(true);
+    if (inputRef.current) {
+      // If the field sits in the lower part of the screen, the keyboard is about to eat
+      // most of the space below it -- open the list upward instead so it's actually usable.
+      const rect = inputRef.current.getBoundingClientRect();
+      setOpenUp(rect.top > window.innerHeight * 0.42);
+    }
+  };
 
   return (
     <div style={{position:"relative"}}>
       <input
+        ref={inputRef}
         className="nfl-select"
         placeholder={placeholder}
         value={open ? query : (selected ? selected.label : "")}
         onChange={e => { setQuery(e.target.value); setOpen(true); }}
-        onFocus={() => { setQuery(""); setOpen(true); }}
+        onFocus={handleOpen}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={e => {
           if (e.key === "Enter") {
@@ -833,7 +851,8 @@ function SearchSelect({ options, value, onChange, excludeSet, placeholder }) {
       />
       {open && (
         <div style={{
-          position:"absolute", top:"100%", left:0, right:0, zIndex:20, marginTop:4,
+          position:"absolute", left:0, right:0, zIndex:20,
+          ...(openUp ? {bottom:"100%", marginBottom:4} : {top:"100%", marginTop:4}),
           maxHeight:230, overflowY:"auto", background:"#0a1a1a", border:"1px solid #00c4b4", borderRadius:6,
         }}>
           {filtered.length === 0 && <div style={{padding:"10px 12px",color:"#5fa89e",fontSize:13}}>No matches</div>}
@@ -905,7 +924,7 @@ function NFLEntryForm() {
   }, []);
 
   const nameSuggestions = lookupName.trim().length >= 2
-    ? knownEntries.filter(e => e.name.toLowerCase().includes(lookupName.trim().toLowerCase())).slice(0, 5)
+    ? knownEntries.filter(e => normApostrophe(e.name).includes(normApostrophe(lookupName.trim()))).slice(0, 5)
     : [];
 
   const qbSalary = (t) => NFL_QB_TEAMS.find(x => x.team === t)?.tds || 0;
