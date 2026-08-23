@@ -840,7 +840,7 @@ function SearchSelect({ options, value, onChange, excludeSet, placeholder }) {
             <input
               autoFocus
               className="form-input"
-              style={{flex:1, margin:0}}
+              style={{flex:1, margin:0, fontSize:16}}
               placeholder={placeholder || "Search..."}
               value={query}
               onChange={e => setQuery(e.target.value)}
