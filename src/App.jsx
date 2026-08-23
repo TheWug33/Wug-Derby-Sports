@@ -812,78 +812,67 @@ const NFL_CAP = 146;
 const normApostrophe = (s) => s.toLowerCase().replace(/[\u2018\u2019]/g, "'");
 
 function SearchSelect({ options, value, onChange, excludeSet, placeholder }) {
+  const [modalOpen, setModalOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [openUp, setOpenUp] = useState(false);
-  const inputRef = useRef(null);
 
   const selected = options.find(o => o.value === value);
   const filtered = query.trim()
     ? options.filter(o => normApostrophe(o.label).includes(normApostrophe(query.trim())))
     : options;
 
-  const handleOpen = () => {
-    setQuery(""); setOpen(true);
-    // The keyboard hasn't appeared yet at the instant of focus, so a field that looks
-    // "middle of screen" right now can end up with almost no room once it has. Measure
-    // against the actual visible area (which visualViewport reflects once the keyboard
-    // is up) and re-check shortly after, once the keyboard's animation has settled.
-    const measure = () => {
-      if (!inputRef.current) return;
-      const rect = inputRef.current.getBoundingClientRect();
-      const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      setOpenUp(spaceBelow < 220 && spaceAbove > spaceBelow);
-    };
-    measure();
-    setTimeout(measure, 300);
-  };
+  const openModal = () => { setQuery(""); setModalOpen(true); };
+  const closeModal = () => { setModalOpen(false); setQuery(""); };
+  const pick = (o) => { onChange(o.value); closeModal(); };
 
   return (
-    <div style={{position:"relative"}}>
-      <input
-        ref={inputRef}
+    <>
+      <div
+        onClick={openModal}
         className="nfl-select"
-        placeholder={placeholder}
-        value={open ? query : (selected ? selected.label : "")}
-        onChange={e => { setQuery(e.target.value); setOpen(true); }}
-        onFocus={handleOpen}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        onKeyDown={e => {
-          if (e.key === "Enter") {
-            const first = filtered.find(o => !(excludeSet.has(o.value) && o.value !== value));
-            if (first) { onChange(first.value); setOpen(false); setQuery(""); }
-          }
-        }}
-      />
-      {open && (
-        <div style={{
-          position:"absolute", left:0, right:0, zIndex:20,
-          ...(openUp ? {bottom:"100%", marginBottom:4} : {top:"100%", marginTop:4}),
-          maxHeight:230, overflowY:"auto", background:"#0a1a1a", border:"1px solid #00c4b4", borderRadius:6,
-        }}>
-          {filtered.length === 0 && <div style={{padding:"10px 12px",color:"#5fa89e",fontSize:13}}>No matches</div>}
-          {filtered.map(o => {
-            const isExcluded = excludeSet.has(o.value) && o.value !== value;
-            return (
-              <div
-                key={o.value}
-                onMouseDown={() => { if (!isExcluded) { onChange(o.value); setOpen(false); setQuery(""); } }}
-                style={{
-                  padding:"10px 12px", fontSize:14, borderTop:"1px solid #1a3a3a",
-                  cursor: isExcluded ? "default" : "pointer",
-                  color: isExcluded ? "#3a5a5a" : (o.value === value ? "#00c4b4" : "#fff"),
-                  background: o.value === value ? "rgba(0,196,180,.08)" : "transparent",
-                }}
-              >
-                {o.label}{isExcluded ? " — already picked" : ""}
-              </div>
-            );
-          })}
+        style={{cursor:"pointer", color: selected ? "#fff" : "#5fa89e"}}
+      >
+        {selected ? selected.label : (placeholder || "Tap to select")}
+      </div>
+
+      {modalOpen && (
+        <div style={{position:"fixed", inset:0, zIndex:100, background:"#000", display:"flex", flexDirection:"column"}}>
+          <div style={{display:"flex", alignItems:"center", gap:10, padding:"14px 16px", borderBottom:"2px solid #1a3a3a", background:"#0a1a1a"}}>
+            <input
+              autoFocus
+              className="form-input"
+              style={{flex:1, margin:0}}
+              placeholder={placeholder || "Search..."}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+            <button onClick={closeModal} style={{
+              background:"transparent", border:"1px solid #5fa89e", borderRadius:6,
+              color:"#5fa89e", padding:"10px 14px", fontSize:14, cursor:"pointer", flexShrink:0,
+            }}>Cancel</button>
+          </div>
+          <div style={{flex:1, overflowY:"auto"}}>
+            {filtered.length === 0 && <div style={{padding:24, color:"#5fa89e", textAlign:"center"}}>No matches</div>}
+            {filtered.map(o => {
+              const isExcluded = excludeSet.has(o.value) && o.value !== value;
+              return (
+                <div
+                  key={o.value}
+                  onClick={() => { if (!isExcluded) pick(o); }}
+                  style={{
+                    padding:"16px 18px", fontSize:16, borderBottom:"1px solid #1a3a3a",
+                    cursor: isExcluded ? "default" : "pointer",
+                    color: isExcluded ? "#3a5a5a" : (o.value === value ? "#00c4b4" : "#fff"),
+                    background: o.value === value ? "rgba(0,196,180,.08)" : "transparent",
+                  }}
+                >
+                  {o.label}{isExcluded ? " — already picked" : ""}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
