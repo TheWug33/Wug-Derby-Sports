@@ -314,7 +314,7 @@ const NFL_PLAYER_POOL = [
   {name:"DK Metcalf",team:"PIT",tds:7},{name:"DJ Moore",team:"BUF",tds:7},{name:"Bhayshul Tuten",team:"JAX",tds:7},
   {name:"Jameson Williams",team:"DET",tds:7},{name:"Michael Wilson",team:"ARI",tds:7},{name:"Romeo Doubs",team:"GB",tds:6},
   {name:"Emeka Egbuka",team:"TB",tds:6},{name:"Rashee Rice",team:"KC",tds:6},{name:"Mark Andrews",team:"BAL",tds:6},
-  {name:"Kayshon Boutte",team:"NE",tds:6},{name:"Blake Corum",team:"LAR",tds:6},{name:"Zay Flowers",team:"BAL",tds:6},
+  {name:"Kayshon Boutte",team:"HOU",tds:6},{name:"Blake Corum",team:"LAR",tds:6},{name:"Zay Flowers",team:"BAL",tds:6},
   {name:"Jayden Higgins",team:"HOU",tds:6},{name:"Tucker Kraft",team:"GB",tds:6},{name:"Colston Loveland",team:"CHI",tds:6},
   {name:"Jordan Mason",team:"MIN",tds:6},{name:"Ladd McConkey",team:"LAC",tds:6},{name:"Rome Odunze",team:"CHI",tds:6},
   {name:"Alec Pierce",team:"IND",tds:6},{name:"Chris Rodriguez",team:"JAX",tds:6},{name:"Deebo Samuel",team:"SF",tds:6},
