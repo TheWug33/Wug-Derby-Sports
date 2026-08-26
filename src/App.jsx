@@ -312,9 +312,9 @@ const NFL_PLAYER_POOL = [
   {name:"AJ Brown",team:"NE",tds:7},{name:"Rico Dowdle",team:"PIT",tds:7},{name:"Harold Fannin",team:"CLE",tds:7},
   {name:"Hunter Henry",team:"NE",tds:7},{name:"George Kittle",team:"SF",tds:7},{name:"Tetairoa McMillan",team:"CAR",tds:7},
   {name:"DK Metcalf",team:"PIT",tds:7},{name:"DJ Moore",team:"BUF",tds:7},{name:"Bhayshul Tuten",team:"JAX",tds:7},
-  {name:"Jameson Williams",team:"DET",tds:7},{name:"Michael Wilson",team:"ARI",tds:7},{name:"Romeo Doubs",team:"NE",tds:6},
+  {name:"Jameson Williams",team:"DET",tds:7},{name:"Michael Wilson",team:"ARI",tds:7},{name:"Romeo Doubs",team:"GB",tds:6},
   {name:"Emeka Egbuka",team:"TB",tds:6},{name:"Rashee Rice",team:"KC",tds:6},{name:"Mark Andrews",team:"BAL",tds:6},
-  {name:"Kayshon Boutte",team:"HOU",tds:6},{name:"Blake Corum",team:"LAR",tds:6},{name:"Zay Flowers",team:"BAL",tds:6},
+  {name:"Kayshon Boutte",team:"NE",tds:6},{name:"Blake Corum",team:"LAR",tds:6},{name:"Zay Flowers",team:"BAL",tds:6},
   {name:"Jayden Higgins",team:"HOU",tds:6},{name:"Tucker Kraft",team:"GB",tds:6},{name:"Colston Loveland",team:"CHI",tds:6},
   {name:"Jordan Mason",team:"MIN",tds:6},{name:"Ladd McConkey",team:"LAC",tds:6},{name:"Rome Odunze",team:"CHI",tds:6},
   {name:"Alec Pierce",team:"IND",tds:6},{name:"Chris Rodriguez",team:"JAX",tds:6},{name:"Deebo Samuel",team:"SF",tds:6},
@@ -1140,6 +1140,7 @@ function NFLEntryForm() {
         <div>
           <div style={{fontFamily:"var(--F)",fontSize:18,letterSpacing:1}}>PICKS DUE SEPT 9 - 8:00 PM ET</div>
           <div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>Entry fee: 50 units</div>
+          <div style={{fontSize:12,color:"#5fa89e",marginTop:2}}>Zelle - scott.wbeverly@gmail.com</div>
         </div>
       </div>
 
@@ -2281,6 +2282,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
                 <div><strong style={{color:"#ffd700"}}>Scoring:</strong> Rush/Rec/Pass TD = 6 pts, FG = 3 pts, XP = 0</div>
                 <div><strong style={{color:"#ffd700"}}>Pay Periods:</strong> Wks 1-4, 5-8, 9-13, 14-18, + Overall</div>
                 <div><strong style={{color:"#ffd700"}}>Entry:</strong> $50, due by Week 2</div>
+                <div><strong style={{color:"#ffd700"}}>Payment:</strong> Zelle - scott.wbeverly@gmail.com</div>
               </div>
             )}
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#00c4b4"}}>{new Date()>=NFL_DEADLINE?"Season Live":"Submissions Open"}</span></div>
