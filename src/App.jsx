@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 
 const JUNE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=966793280&single=true&output=csv";
+
+// Wraps fetch with a hard timeout -- without this, a single stalled request (bad connection,
+// a Google Sheets hiccup, anything that hangs rather than errors) leaves the whole site stuck
+// on the loading spinner forever, since Promise.all never resolves OR rejects in that case.
+function fetchWithTimeout(url, ms = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
 const JULY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=356880675&single=true&output=csv";
 const AUGUST_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=1316191049&single=true&output=csv";
 const MAY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=2102778375&single=true&output=csv";
@@ -2426,14 +2435,14 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([
-      fetch(AUGUST_CSV_URL).then(r=>r.text()),
-      fetch(JULY_CSV_URL).then(r=>r.text()),
-      fetch(JUNE_CSV_URL).then(r=>r.text()),
-      fetch(MAY_CSV_URL).then(r=>r.text()),
-      fetch(APRIL_CSV_URL).then(r=>r.text()),
-      fetch(SUBS_CSV_URL).then(r=>r.text()),
-      fetch(SCORES_CSV_URL).then(r=>r.text()),
-      fetch(SCORERS_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(AUGUST_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(JULY_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(JUNE_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(MAY_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(APRIL_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(SUBS_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(SCORES_CSV_URL).then(r=>r.text()),
+      fetchWithTimeout(SCORERS_CSV_URL).then(r=>r.text()),
     ]).then(([august, july, june, may, april, subs, scores, scorers]) => {
       setAllData({ august: parseCSV(august), july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
       setSubmissions(parseSubmissions(subs));
@@ -2441,10 +2450,10 @@ export default function App() {
       setWcScorers(parseScorers(scorers));
       setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
       setLoading(false);
-    }).catch(() => { setError("Could not load data. Please refresh."); setLoading(false); });
+    }).catch(() => { setError("Taking longer than expected to load. Check your connection and tap below to try again."); setLoading(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (error) return (<><style>{S}</style><div className="loading"><div style={{fontSize:40}}>⚠️</div><div>{error}</div></div></>);
+  if (error) return (<><style>{S}</style><div className="loading"><div style={{fontSize:40}}>⚠️</div><div style={{textAlign:"center",padding:"0 24px"}}>{error}</div><button className="submit-btn" style={{maxWidth:220,marginTop:8}} onClick={() => window.location.reload()}>TRY AGAIN</button></div></>);
   if (loading) return (<><style>{S}</style><div className="loading"><div className="spinner"/><div style={{fontFamily:"var(--F)",fontSize:24,letterSpacing:2}}>LOADING LIVE DATA...</div></div></>);
 
   return (
