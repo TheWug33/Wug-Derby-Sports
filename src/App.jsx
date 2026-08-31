@@ -2432,11 +2432,20 @@ export default function App() {
   const [wcScorers, setWcScorers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [partialWarning, setPartialWarning] = useState("");
+
+  const EMPTY_MONTH = {monthlyStandings:[],seasonStandings:[],rosters:[],hrLeaders:[]};
+  const safeParse = (fn, text, fallback) => {
+    try { return fn(text); } catch { return fallback; }
+  };
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadAll = () => Promise.all([
+    // Promise.allSettled instead of Promise.all: no single slow or broken source can ever
+    // block the whole site from rendering again. Each source either loads or it doesn't --
+    // either way, loading ends and the app shows whatever data it actually has.
+    Promise.allSettled([
       fetchWithTimeout(AUGUST_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(JULY_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(JUNE_CSV_URL).then(r=>r.text()),
@@ -2445,32 +2454,28 @@ export default function App() {
       fetchWithTimeout(SUBS_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(SCORES_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(SCORERS_CSV_URL).then(r=>r.text()),
-    ]);
+    ]).then((results) => {
+      if (cancelled) return;
+      const text = (r) => (r.status === "fulfilled" ? r.value : "");
+      const [august, july, june, may, april, subs, scores, scorers] = results.map(text);
 
-    // A published Google Sheet's first hit is sometimes slow to "wake up" and can miss the
-    // timeout even though the site is otherwise fine -- a quick silent retry clears that up
-    // in the vast majority of cases, without ever bothering the person with an error screen.
-    const attempt = (attemptsLeft) => {
-      loadAll().then(([august, july, june, may, april, subs, scores, scorers]) => {
-        if (cancelled) return;
-        setAllData({ august: parseCSV(august), july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
-        setSubmissions(parseSubmissions(subs));
-        setWcScores(parseScores(scores));
-        setWcScorers(parseScorers(scorers));
-        setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
-        setLoading(false);
-      }).catch(() => {
-        if (cancelled) return;
-        if (attemptsLeft > 0) {
-          setTimeout(() => attempt(attemptsLeft - 1), 800);
-        } else {
-          setError("Taking longer than expected to load. Check your connection and tap below to try again.");
-          setLoading(false);
-        }
+      setAllData({
+        august: safeParse(parseCSV, august, EMPTY_MONTH),
+        july:   safeParse(parseCSV, july,   EMPTY_MONTH),
+        june:   safeParse(parseCSV, june,   EMPTY_MONTH),
+        may:    safeParse(parseCSV, may,    EMPTY_MONTH),
+        april:  safeParse(parseCSV, april,  EMPTY_MONTH),
       });
-    };
+      setSubmissions(safeParse(parseSubmissions, subs, []));
+      setWcScores(safeParse(parseScores, scores, {}));
+      setWcScorers(safeParse(parseScorers, scorers, []));
+      setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
 
-    attempt(1);
+      const failed = results.filter(r => r.status === "rejected").length;
+      setPartialWarning(failed > 0 ? `Some data (${failed} of 8 sources) couldn't load. Pull to refresh to try again.` : "");
+      setLoading(false);
+    });
+
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2482,6 +2487,11 @@ export default function App() {
       <style>{S}</style>
       {isJuly4() && <Fireworks/>}
       <div>
+        {partialWarning && (
+          <div style={{background:"#2a1a00",borderBottom:"1px solid #ffd700",color:"#ffd700",fontSize:12,textAlign:"center",padding:"6px 12px"}}>
+            ⚠️ {partialWarning}
+          </div>
+        )}
         <header className="hdr">
           <div className="logo" style={{cursor:"pointer"}} onClick={()=>setTab("dashboard")}>WUG DERBY<span> POOLS</span></div>
           <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:<span style={{color:"#00e5d4",fontWeight:700}}>HR DERBY LIVE</span>}</div>
