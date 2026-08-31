@@ -2434,7 +2434,9 @@ export default function App() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Promise.all([
+    let cancelled = false;
+
+    const loadAll = () => Promise.all([
       fetchWithTimeout(AUGUST_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(JULY_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(JUNE_CSV_URL).then(r=>r.text()),
@@ -2443,14 +2445,33 @@ export default function App() {
       fetchWithTimeout(SUBS_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(SCORES_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(SCORERS_CSV_URL).then(r=>r.text()),
-    ]).then(([august, july, june, may, april, subs, scores, scorers]) => {
-      setAllData({ august: parseCSV(august), july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
-      setSubmissions(parseSubmissions(subs));
-      setWcScores(parseScores(scores));
-      setWcScorers(parseScorers(scorers));
-      setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
-      setLoading(false);
-    }).catch(() => { setError("Taking longer than expected to load. Check your connection and tap below to try again."); setLoading(false); });
+    ]);
+
+    // A published Google Sheet's first hit is sometimes slow to "wake up" and can miss the
+    // timeout even though the site is otherwise fine -- a quick silent retry clears that up
+    // in the vast majority of cases, without ever bothering the person with an error screen.
+    const attempt = (attemptsLeft) => {
+      loadAll().then(([august, july, june, may, april, subs, scores, scorers]) => {
+        if (cancelled) return;
+        setAllData({ august: parseCSV(august), july: parseCSV(july), june: parseCSV(june), may: parseCSV(may), april: parseCSV(april) });
+        setSubmissions(parseSubmissions(subs));
+        setWcScores(parseScores(scores));
+        setWcScorers(parseScorers(scorers));
+        setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+        setLoading(false);
+      }).catch(() => {
+        if (cancelled) return;
+        if (attemptsLeft > 0) {
+          setTimeout(() => attempt(attemptsLeft - 1), 800);
+        } else {
+          setError("Taking longer than expected to load. Check your connection and tap below to try again.");
+          setLoading(false);
+        }
+      });
+    };
+
+    attempt(1);
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return (<><style>{S}</style><div className="loading"><div style={{fontSize:40}}>⚠️</div><div style={{textAlign:"center",padding:"0 24px"}}>{error}</div><button className="submit-btn" style={{maxWidth:220,marginTop:8}} onClick={() => window.location.reload()}>TRY AGAIN</button></div></>);
