@@ -2441,6 +2441,10 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    const SOURCE_NAMES = [
+      "August standings", "July standings", "June standings", "May standings",
+      "April standings", "World Cup entries", "World Cup scores", "World Cup scorers",
+    ];
 
     // Promise.allSettled instead of Promise.all: no single slow or broken source can ever
     // block the whole site from rendering again. Each source either loads or it doesn't --
@@ -2471,8 +2475,8 @@ export default function App() {
       setWcScorers(safeParse(parseScorers, scorers, []));
       setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
 
-      const failed = results.filter(r => r.status === "rejected").length;
-      setPartialWarning(failed > 0 ? `Some data (${failed} of 8 sources) couldn't load. Tap here to try again.` : "");
+      const failedNames = results.map((r,i) => r.status === "rejected" ? SOURCE_NAMES[i] : null).filter(Boolean);
+      setPartialWarning(failedNames.length > 0 ? `Couldn't load: ${failedNames.join(", ")}. Tap here to try again.` : "");
       setLoading(false);
     });
 
