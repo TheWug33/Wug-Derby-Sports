@@ -2472,7 +2472,7 @@ export default function App() {
       setUpdatedAt(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
 
       const failed = results.filter(r => r.status === "rejected").length;
-      setPartialWarning(failed > 0 ? `Some data (${failed} of 8 sources) couldn't load. Pull to refresh to try again.` : "");
+      setPartialWarning(failed > 0 ? `Some data (${failed} of 8 sources) couldn't load. Tap here to try again.` : "");
       setLoading(false);
     });
 
@@ -2488,7 +2488,10 @@ export default function App() {
       {isJuly4() && <Fireworks/>}
       <div>
         {partialWarning && (
-          <div style={{background:"#2a1a00",borderBottom:"1px solid #ffd700",color:"#ffd700",fontSize:12,textAlign:"center",padding:"6px 12px"}}>
+          <div
+            onClick={() => window.location.reload()}
+            style={{background:"#2a1a00",borderBottom:"1px solid #ffd700",color:"#ffd700",fontSize:12,textAlign:"center",padding:"6px 12px",cursor:"pointer",textDecoration:"underline"}}
+          >
             ⚠️ {partialWarning}
           </div>
         )}
