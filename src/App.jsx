@@ -11,6 +11,7 @@ function fetchWithTimeout(url, ms = 15000) {
   return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 const JULY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=356880675&single=true&output=csv";
+const SEPTEMBER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=659539445&single=true&output=csv";
 const AUGUST_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=1316191049&single=true&output=csv";
 const MAY_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=2102778375&single=true&output=csv";
 const APRIL_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtADRNEx9M4uGiDjqrSppUqUO-YUfDp8WcgRSLvWQUgg7zPcJMFocQ7CNa-ORol3-y4qjpb-f3GC5g/pub?gid=172900262&single=true&output=csv";
@@ -2009,13 +2010,13 @@ function WorldCup({submissions, wcScores, wcScorers}) {
 // ── HR DERBY ─────────────────────────────────────────────────────────────────
 function HRDerby({allData}) {
   const [sec, setSec] = useState("standings");
-  const [monthKey, setMonthKey] = useState("august");
+  const [monthKey, setMonthKey] = useState("september");
   const [stab, setStab] = useState("season");
   const [search, setSearch] = useState("");
   const [sel, setSel] = useState(null);
 
-  const months = [{key:"august",label:"August",cur:true},{key:"july",label:"July",cur:false},{key:"june",label:"June",cur:false},{key:"may",label:"May",cur:false},{key:"april",label:"April",cur:false}];
-  const cur = allData[monthKey] || allData["august"] || allData["july"] || allData["june"] || allData["may"] || {monthlyStandings:[],seasonStandings:[],rosters:[],hrLeaders:[]};
+  const months = [{key:"september",label:"September",cur:true},{key:"august",label:"August",cur:false},{key:"july",label:"July",cur:false},{key:"june",label:"June",cur:false},{key:"may",label:"May",cur:false},{key:"april",label:"April",cur:false}];
+  const cur = allData[monthKey] || allData["september"] || allData["august"] || allData["july"] || allData["june"] || allData["may"] || {monthlyStandings:[],seasonStandings:[],rosters:[],hrLeaders:[]};
   const ms = cur.monthlyStandings || [];
   const ss = cur.seasonStandings || [];
   const ros = cur.rosters || [];
@@ -2227,7 +2228,8 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
       setNflEntryCount(parseNflEntriesCSV(t).length);
     }).catch(() => {}); // quietly stay blank if it fails -- not worth blocking the dashboard over
   }, []);
-  const cur = allData["august"] || allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
+  const curMonthLabel = allData["september"] ? "September" : allData["august"] ? "August" : allData["july"] ? "July" : allData["june"] ? "June" : allData["may"] ? "May" : "Month";
+  const cur = allData["september"] || allData["august"] || allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
   const ss = cur.seasonStandings || [];
   const ms = cur.monthlyStandings || [];
   const sl = [...ss].sort((a,b)=>b.season-a.season)[0] || {};
@@ -2257,7 +2259,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
           </div>
           <div className="dcbody">
             <div className="dsr"><span className="dsl">Season Leader</span><span className="dsv">{sl.name||"—"} ({sl.season||0} HR)</span></div>
-            <div className="dsr"><span className="dsl">August Leader</span><span className="dsv">{ml.name||"—"} ({ml.month||0} HR)</span></div>
+            <div className="dsr"><span className="dsl">{curMonthLabel} Leader</span><span className="dsv">{ml.name||"—"} ({ml.month||0} HR)</span></div>
             <div className="dsr" style={{marginBottom:0}}><span className="dsl">Season Prize</span><span className="dsv">1st $300 - 2nd $175 - 3rd $75</span></div>
           </div>
           <button className="dcta">VIEW STANDINGS</button>
@@ -2442,7 +2444,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     const SOURCE_NAMES = [
-      "August standings", "July standings", "June standings", "May standings",
+      "September standings", "August standings", "July standings", "June standings", "May standings",
       "April standings", "World Cup entries", "World Cup scores", "World Cup scorers",
     ];
 
@@ -2450,6 +2452,7 @@ export default function App() {
     // block the whole site from rendering again. Each source either loads or it doesn't --
     // either way, loading ends and the app shows whatever data it actually has.
     Promise.allSettled([
+      fetchWithTimeout(SEPTEMBER_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(AUGUST_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(JULY_CSV_URL).then(r=>r.text()),
       fetchWithTimeout(JUNE_CSV_URL).then(r=>r.text()),
@@ -2461,9 +2464,10 @@ export default function App() {
     ]).then((results) => {
       if (cancelled) return;
       const text = (r) => (r.status === "fulfilled" ? r.value : "");
-      const [august, july, june, may, april, subs, scores, scorers] = results.map(text);
+      const [september, august, july, june, may, april, subs, scores, scorers] = results.map(text);
 
       setAllData({
+        september: safeParse(parseCSV, september, EMPTY_MONTH),
         august: safeParse(parseCSV, august, EMPTY_MONTH),
         july:   safeParse(parseCSV, july,   EMPTY_MONTH),
         june:   safeParse(parseCSV, june,   EMPTY_MONTH),
