@@ -341,24 +341,41 @@ const NFL_PLAYER_POOL = [
 
 // ── NFL DERBY SCORING HELPERS (inline -- this app is single-file, no local imports) ──
 const NFL_PERIODS = {
-  "Period 1": [1,2,3,4],
-  "Period 2": [5,6,7,8],
-  "Period 3": [9,10,11,12,13],
-  "Period 4": [14,15,16,17,18],
+  "Period 1": [1,2,3,4,5,6],
+  "Period 2": [7,8,9,10,11,12],
+  "Period 3": [13,14,15,16,17,18],
 };
 
 function weeksThroughPeriod(periodName) {
-  const order = ["Period 1","Period 2","Period 3","Period 4"];
+  const order = ["Period 1","Period 2","Period 3"];
   const idx = order.indexOf(periodName);
   if (idx === -1) return [];
   return order.slice(0, idx+1).flatMap(p => NFL_PERIODS[p]);
 }
 
+// Week 1 kicks off Sept 9, 2026. Used to avoid firing requests for weeks that
+// haven't happened yet -- fetching all 18 up front is ~300 box-score lookups for
+// games that don't exist.
+const NFL_SEASON_START = new Date("2026-09-09T00:00:00-04:00");
+
+function currentNflWeek() {
+  const diffDays = (new Date() - NFL_SEASON_START) / 86400000;
+  if (diffDays < 0) return 0;
+  return Math.min(18, Math.floor(diffDays / 7) + 1);
+}
+
 async function fetchWeeksStats(weeks, year) {
-  const results = await Promise.all(
-    weeks.map(w => fetch(`/api/nfl-week?week=${w}&year=${year}`).then(r => r.json()))
-  );
+  const playedWeeks = weeks.filter(w => w <= currentNflWeek());
   const teams = {}, players = {};
+  if (playedWeeks.length === 0) return {teams, players, noGamesYet: true};
+
+  // allSettled, not all: a single slow or failed week shouldn't blank the entire
+  // leaderboard -- show the weeks that did load.
+  const settled = await Promise.allSettled(
+    playedWeeks.map(w => fetch(`/api/nfl-week?week=${w}&year=${year}`).then(r => r.json()))
+  );
+  const results = settled.filter(s => s.status === "fulfilled").map(s => s.value);
+
   const bump = (obj, key, field, amount) => {
     if (!amount) return;
     if (!obj[key]) obj[key] = {};
@@ -377,11 +394,12 @@ async function fetchWeeksStats(weeks, year) {
   for (const name of Object.keys(players)) {
     players[name].totalTD = (players[name].rushTD||0) + (players[name].recTD||0);
   }
-  return {teams, players};
+  const failedWeeks = settled.filter(s => s.status === "rejected").length;
+  return {teams, players, failedWeeks};
 }
 
 function fetchPeriodStats(periodName, year) {
-  const weeks = periodName === "Overall" ? weeksThroughPeriod("Period 4") : NFL_PERIODS[periodName];
+  const weeks = periodName === "Overall" ? weeksThroughPeriod("Period 3") : NFL_PERIODS[periodName];
   return fetchWeeksStats(weeks, year);
 }
 
@@ -1417,10 +1435,10 @@ function NFLEntryForm() {
 }
 
 // ── NFL STANDINGS ─────────────────────────────────────────────────────────────
-const NFL_PERIOD_TABS = ["Period 1","Period 2","Period 3","Period 4","Overall"];
+const NFL_PERIOD_TABS = ["Period 1","Period 2","Period 3","Overall"];
 const NFL_PERIOD_SUBLABEL = {
-  "Period 1":"Weeks 1-4", "Period 2":"Weeks 5-8", "Period 3":"Weeks 9-13",
-  "Period 4":"Weeks 14-18", "Overall":"Full Season",
+  "Period 1":"Weeks 1-6", "Period 2":"Weeks 7-12", "Period 3":"Weeks 13-18",
+  "Overall":"Full Season",
 };
 
 function NFLStandings() {
@@ -1484,6 +1502,16 @@ function NFLStandings() {
               Click a name for the roster breakdown
             </span>
           </div>
+          {stats?.noGamesYet && (
+            <div style={{padding:"18px 20px",color:"#ffd700",fontSize:14,borderBottom:"1px solid #1a2a2a"}}>
+              🏈 Rosters are locked. Scores will start appearing here once Week 1 games are played.
+            </div>
+          )}
+          {stats?.failedWeeks > 0 && (
+            <div style={{padding:"12px 20px",color:"#e84545",fontSize:13,borderBottom:"1px solid #1a2a2a"}}>
+              {stats.failedWeeks} week{stats.failedWeeks > 1 ? "s" : ""} of stats couldn't load — totals may be incomplete. Reload to retry.
+            </div>
+          )}
           {leaderboard.length === 0 && <div style={{padding:20,color:"#5fa89e"}}>No entries yet.</div>}
           {leaderboard.map((e, i) => (
             <div key={e.email + e.entryNumber}>
@@ -2291,7 +2319,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
                 <div><strong style={{color:"#ffd700"}}>Cap:</strong> 146 total (salaries from 2025 stats)</div>
                 <div><strong style={{color:"#ffd700"}}>Swap:</strong> One swap allowed before Week 9; can't exceed the cap; QB/K can't be swapped</div>
                 <div><strong style={{color:"#ffd700"}}>Scoring:</strong> Rush/Rec/Pass TD = 6 pts, FG = 3 pts, XP = 0</div>
-                <div><strong style={{color:"#ffd700"}}>Pay Periods:</strong> Wks 1-4, 5-8, 9-13, 14-18, + Overall</div>
+                <div><strong style={{color:"#ffd700"}}>Pay Periods:</strong> Wks 1-6, 7-12, 13-18, + Overall</div>
                 <div><strong style={{color:"#ffd700"}}>Entry:</strong> $50, due by Week 2</div>
                 <div><strong style={{color:"#ffd700"}}>Payment:</strong> Zelle - scott.wbeverly@gmail.com</div>
               </div>
