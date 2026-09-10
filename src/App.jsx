@@ -1460,6 +1460,21 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
     return {...e, displayName, total, breakdown: fullBreakdown};
   }).sort((a,b) => b.total - a.total) : [];
 
+  // Ownership %, tracked separately per category -- a team picked as someone's QB and
+  // the same team picked as someone else's Kicker are different facts, not the same stat.
+  const ownCounts = {qb:{}, k:{}, player:{}};
+  (entries || []).forEach(e => {
+    [e.qb1, e.qb2].forEach(v => { if (v) ownCounts.qb[v] = (ownCounts.qb[v]||0)+1; });
+    [e.k1, e.k2].forEach(v => { if (v) ownCounts.k[v] = (ownCounts.k[v]||0)+1; });
+    [e.player1,e.player2,e.player3,e.player4,e.player5,e.player6,e.swap].forEach(v => { if (v) ownCounts.player[v] = (ownCounts.player[v]||0)+1; });
+  });
+  const ownPct = (slot, name) => {
+    const total = entries?.length || 0;
+    if (!total) return 0;
+    const counts = slot === "QB" ? ownCounts.qb : slot === "K" ? ownCounts.k : ownCounts.player;
+    return Math.round((counts[name]||0)/total*100);
+  };
+
   return (
     <div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:6,marginBottom:16}}>
@@ -1529,7 +1544,8 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
                       <div key={j} className="breakdown-cell" style={{display:"flex",flexDirection:"column",justifyContent:"flex-start",gap:5,alignItems:"stretch"}}>
                         <span style={{fontSize:11,color:"#5fa89e",lineHeight:1.3}}>{b.slot}: {b.name}</span>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span style={{fontSize:11,color:"#ffd700"}}>Sal {salaryFor(b.slot,b.name)}</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"#ffd700"}}>{salaryFor(b.slot,b.name)}</span>
+                          <span style={{fontSize:10,color:"#5fa89e"}}>{ownPct(b.slot,b.name)}% owned</span>
                           <span style={{fontSize:14,fontWeight:700,color:"#fff"}}>{b.pts}</span>
                         </div>
                       </div>
@@ -1542,7 +1558,10 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
                       display:"flex", justifyContent:"space-between", alignItems:"center",
                     }}>
                       <span style={{fontSize:12,color:"#e84545"}}>🔒 Swap: {b.name}</span>
-                      <span style={{fontSize:11,color:"#ffd700"}}>Sal {salaryFor(b.slot,b.name)}</span>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <span style={{fontSize:10,color:"#5fa89e"}}>{ownPct(b.slot,b.name)}% owned</span>
+                        <span style={{fontSize:14,fontWeight:700,color:"#ffd700"}}>{salaryFor(b.slot,b.name)}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
