@@ -1462,12 +1462,12 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
 
   return (
     <div>
-      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:16,paddingBottom:2}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:6,marginBottom:16}}>
         {NFL_PERIOD_TABS.map(p => (
           <button key={p} onClick={() => { setPeriod(p); setExpanded(null); }}
             style={{
-              flex:"0 0 auto", padding:"10px 16px", borderRadius:6, cursor:"pointer",
-              fontFamily:"var(--F)", fontSize:15, letterSpacing:1, whiteSpace:"nowrap",
+              padding:"9px 4px", borderRadius:6, cursor:"pointer",
+              fontFamily:"var(--F)", fontSize:12, letterSpacing:0.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
               background: period===p ? "#00c4b4" : "#0a1a1a",
               color: period===p ? "#000" : "#5fa89e",
               border: period===p ? "2px solid #00c4b4" : "1px solid #1a3a3a",
@@ -1523,21 +1523,28 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
                 <div style={{fontFamily:"var(--F)",fontSize:22,color:"#00c4b4"}}>{e.total}</div>
               </div>
               {expanded === i && (
-                <div style={{padding:"0 20px 16px 60px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  {e.breakdown.map((b,j) => {
-                    const isBench = b.slot === "Swap";
-                    return (
-                      <div key={j} className="breakdown-cell" style={isBench?{opacity:.6}:{}}>
-                        <span style={{fontSize:12,color: isBench ? "#e84545" : "#5fa89e"}}>
-                          {isBench ? "🔒 Swap" : b.slot}: {b.name}
-                          <span style={{color:"#ffd700",marginLeft:6}}>(Sal {salaryFor(b.slot,b.name)})</span>
-                        </span>
-                        <span style={{fontSize:13,fontWeight:700,color: isBench ? "#5fa89e" : "#fff"}}>
-                          {isBench ? "BENCH" : b.pts}
-                        </span>
+                <div style={{padding:"0 20px 16px 60px"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {e.breakdown.filter(b => b.slot !== "Swap").map((b,j) => (
+                      <div key={j} className="breakdown-cell" style={{display:"flex",flexDirection:"column",justifyContent:"flex-start",gap:5,alignItems:"stretch"}}>
+                        <span style={{fontSize:11,color:"#5fa89e",lineHeight:1.3}}>{b.slot}: {b.name}</span>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <span style={{fontSize:11,color:"#ffd700"}}>Sal {salaryFor(b.slot,b.name)}</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"#fff"}}>{b.pts}</span>
+                        </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                  {e.breakdown.filter(b => b.slot === "Swap").map((b,j) => (
+                    <div key={j} style={{
+                      marginTop:8, padding:"8px 12px", borderRadius:6,
+                      background:"rgba(232,69,69,.08)", border:"1px solid #3a1a1a",
+                      display:"flex", justifyContent:"space-between", alignItems:"center",
+                    }}>
+                      <span style={{fontSize:12,color:"#e84545"}}>🔒 Swap: {b.name}</span>
+                      <span style={{fontSize:11,color:"#ffd700"}}>Sal {salaryFor(b.slot,b.name)}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1710,12 +1717,12 @@ function NFLStandings() {
 
   return (
     <div>
-      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:16,paddingBottom:2}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:6,marginBottom:16}}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setSec(t.id)}
             style={{
-              flex:"0 0 auto", padding:"10px 16px", borderRadius:6, cursor:"pointer",
-              fontFamily:"var(--F)", fontSize:15, letterSpacing:1, whiteSpace:"nowrap",
+              padding:"9px 4px", borderRadius:6, cursor:"pointer",
+              fontFamily:"var(--F)", fontSize:12, letterSpacing:0.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
               background: sec===t.id ? "#ffd700" : "#0a1a1a",
               color: sec===t.id ? "#000" : "#5fa89e",
               border: sec===t.id ? "2px solid #ffd700" : "1px solid #1a3a3a",
