@@ -1441,6 +1441,12 @@ const NFL_PERIOD_SUBLABEL = {
   "Overall":"Full Season",
 };
 
+function salaryFor(slot, name) {
+  if (slot === "QB") return NFL_QB_TEAMS.find(t => t.team === name)?.tds ?? 0;
+  if (slot === "K") return NFL_KICKER_TEAMS.find(t => t.team === name)?.pts ?? 0;
+  return NFL_PLAYER_POOL.find(p => p.name === name)?.tds ?? 0;
+}
+
 function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod, expanded, setExpanded}) {
   const leaderboard = (entries && stats) ? entries.map(e => {
     const roster = {
@@ -1448,8 +1454,10 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
       skill: [e.player1, e.player2, e.player3, e.player4, e.player5, e.player6],
     };
     const {total, breakdown} = scoreRoster(roster, stats);
+    const fullBreakdown = [...breakdown];
+    if (e.swap) fullBreakdown.push({slot:"Swap", name:e.swap, pts:null});
     const displayName = (e.teamName && e.teamName.trim()) || e.name || "Unnamed";
-    return {...e, displayName, total, breakdown};
+    return {...e, displayName, total, breakdown: fullBreakdown};
   }).sort((a,b) => b.total - a.total) : [];
 
   return (
@@ -1516,12 +1524,20 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
               </div>
               {expanded === i && (
                 <div style={{padding:"0 20px 16px 60px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  {e.breakdown.map((b,j) => (
-                    <div key={j} className="breakdown-cell">
-                      <span style={{fontSize:12,color:"#5fa89e"}}>{b.slot}: {b.name}</span>
-                      <span style={{fontSize:13,fontWeight:700}}>{b.pts}</span>
-                    </div>
-                  ))}
+                  {e.breakdown.map((b,j) => {
+                    const isBench = b.slot === "Swap";
+                    return (
+                      <div key={j} className="breakdown-cell" style={isBench?{opacity:.6}:{}}>
+                        <span style={{fontSize:12,color: isBench ? "#e84545" : "#5fa89e"}}>
+                          {isBench ? "🔒 Swap" : b.slot}: {b.name}
+                          <span style={{color:"#ffd700",marginLeft:6}}>(Sal {salaryFor(b.slot,b.name)})</span>
+                        </span>
+                        <span style={{fontSize:13,fontWeight:700,color: isBench ? "#5fa89e" : "#fff"}}>
+                          {isBench ? "BENCH" : b.pts}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
