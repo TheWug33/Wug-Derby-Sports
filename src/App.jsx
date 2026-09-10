@@ -1541,13 +1541,13 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
                 <div style={{padding:"0 20px 16px 60px"}}>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     {e.breakdown.filter(b => b.slot !== "Swap").map((b,j) => (
-                      <div key={j} className="breakdown-cell" style={{display:"flex",flexDirection:"column",justifyContent:"flex-start",gap:5,alignItems:"stretch"}}>
+                      <div key={j} className="breakdown-cell" style={{display:"flex",flexDirection:"column",justifyContent:"flex-start",gap:4,alignItems:"stretch"}}>
                         <span style={{fontSize:11,color:"#5fa89e",lineHeight:1.3}}>{b.slot}: {b.name}</span>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span style={{fontSize:14,fontWeight:700,color:"#ffd700"}}>{salaryFor(b.slot,b.name)}</span>
-                          <span style={{fontSize:10,color:"#5fa89e"}}>{ownPct(b.slot,b.name)}% owned</span>
-                          <span style={{fontSize:14,fontWeight:700,color:"#fff"}}>{b.pts}</span>
+                          <span style={{fontSize:16,fontWeight:700,color:"#ffd700"}}>{salaryFor(b.slot,b.name)}</span>
+                          <span style={{fontSize:16,fontWeight:700,color:"#fff"}}>{b.pts}</span>
                         </div>
+                        <div style={{fontSize:10,color:"#5fa89e",textAlign:"right"}}>{ownPct(b.slot,b.name)}% owned</div>
                       </div>
                     ))}
                   </div>
