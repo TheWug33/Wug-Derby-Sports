@@ -1441,27 +1441,7 @@ const NFL_PERIOD_SUBLABEL = {
   "Overall":"Full Season",
 };
 
-function NFLStandings() {
-  const [period, setPeriod] = useState("Overall");
-  const [entries, setEntries] = useState(null);
-  const [entriesErr, setEntriesErr] = useState("");
-  const [stats, setStats] = useState(null);
-  const [statsErr, setStatsErr] = useState("");
-  const [expanded, setExpanded] = useState(null);
-
-  useEffect(() => {
-    if (!NFL_ENTRIES_CSV_URL) { setEntriesErr("Standings aren't connected yet."); return; }
-    fetch(NFL_ENTRIES_CSV_URL).then(r => r.text()).then(t => setEntries(parseNflEntriesCSV(t)))
-      .catch(() => setEntriesErr("Could not load entries."));
-  }, []);
-
-  useEffect(() => {
-    setStats(null); setStatsErr("");
-    fetchPeriodStats(period, NFL_SEASON_YEAR)
-      .then(setStats)
-      .catch(() => setStatsErr("Could not load stats for this period yet."));
-  }, [period]);
-
+function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod, expanded, setExpanded}) {
   const leaderboard = (entries && stats) ? entries.map(e => {
     const roster = {
       qb: [e.qb1, e.qb2], k: [e.k1, e.k2],
@@ -1548,6 +1528,194 @@ function NFLStandings() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function NFLOwnership({entries}) {
+  if (!entries) return <div style={{color:"#5fa89e",padding:20}}>Loading entries...</div>;
+  const total = entries.length;
+  const pct = (n) => total ? Math.round((n/total)*100) : 0;
+
+  const qbCounts = {}, kCounts = {}, playerCounts = {};
+  entries.forEach(e => {
+    [e.qb1, e.qb2].forEach(t => { if (t) qbCounts[t] = (qbCounts[t]||0)+1; });
+    [e.k1, e.k2].forEach(t => { if (t) kCounts[t] = (kCounts[t]||0)+1; });
+    [e.player1,e.player2,e.player3,e.player4,e.player5,e.player6,e.swap].forEach(p => { if (p) playerCounts[p] = (playerCounts[p]||0)+1; });
+  });
+
+  const Bar = ({label, count}) => (
+    <div style={{marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+        <span>{label}</span><span style={{color:"#00c4b4",fontWeight:700}}>{pct(count)}%</span>
+      </div>
+      <div style={{height:6,borderRadius:3,background:"#111",overflow:"hidden"}}>
+        <div style={{height:"100%",width:`${pct(count)}%`,background:"#00c4b4"}}/>
+      </div>
+    </div>
+  );
+
+  const sortedEntries = (obj) => Object.entries(obj).sort((a,b) => b[1]-a[1]);
+
+  return (
+    <div>
+      <div style={{fontSize:12,color:"#5fa89e",marginBottom:16}}>Based on {total} submitted {total===1?"entry":"entries"}. Updates as new picks come in.</div>
+      <div className="card" style={{marginBottom:16}}>
+        <div className="chdr">Team QB Ownership</div>
+        <div style={{padding:20}}>
+          {sortedEntries(qbCounts).length===0 && <div style={{color:"#5fa89e"}}>No picks yet.</div>}
+          {sortedEntries(qbCounts).map(([team,count]) => <Bar key={team} label={team} count={count}/>)}
+        </div>
+      </div>
+      <div className="card" style={{marginBottom:16}}>
+        <div className="chdr">Team Kicker Ownership</div>
+        <div style={{padding:20}}>
+          {sortedEntries(kCounts).length===0 && <div style={{color:"#5fa89e"}}>No picks yet.</div>}
+          {sortedEntries(kCounts).map(([team,count]) => <Bar key={team} label={team} count={count}/>)}
+        </div>
+      </div>
+      <div className="card">
+        <div className="chdr">Player Ownership <span style={{marginLeft:"auto",fontSize:11,fontFamily:"var(--B)",color:"#5fa89e",fontWeight:400}}>Includes Swap Player picks</span></div>
+        <div style={{padding:20}}>
+          {sortedEntries(playerCounts).length===0 && <div style={{color:"#5fa89e"}}>No picks yet.</div>}
+          {sortedEntries(playerCounts).map(([name,count]) => <Bar key={name} label={name} count={count}/>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NFLScoring() {
+  const rows = [
+    ["Rushing / Receiving / Passing TD", "6 pts"],
+    ["Field Goal (any distance)", "3 pts"],
+    ["Extra Point", "0 pts"],
+    ["Special Teams or Defensive TD", "Does not count for anyone"],
+  ];
+  return (
+    <div className="card">
+      <div className="chdr">Scoring</div>
+      <div style={{padding:20,color:"#5fa89e",fontSize:14,lineHeight:1.8}}>
+        <table style={{width:"100%",borderCollapse:"collapse",marginBottom:20}}>
+          <tbody>
+            {rows.map(([label,val]) => (
+              <tr key={label} style={{borderBottom:"1px solid #1a3a3a"}}>
+                <td style={{padding:"8px 0",color:"#fff"}}>{label}</td>
+                <td style={{padding:"8px 0",textAlign:"right",fontWeight:700,color:"#00c4b4"}}>{val}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{marginBottom:14}}>
+          <span style={{color:"#ffd700",fontWeight:700}}>Team QB slots</span> — your points come from that team's total passing TDs, plus any rushing TDs scored by whichever player(s) actually played QB for them. If a non-QB throws a trick-play TD pass, it doesn't count for anyone.
+        </div>
+        <div style={{marginBottom:14}}>
+          <span style={{color:"#ffd700",fontWeight:700}}>Team Kicker slots</span> — every field goal made by anyone on that team counts, regardless of who kicked it.
+        </div>
+        <div>
+          <span style={{color:"#ffd700",fontWeight:700}}>Skill players</span> — only rushing and receiving TDs count. A trick-play pass thrown by a skill player does not count toward their total.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NFLRules() {
+  const Section = ({title, children}) => (
+    <div className="card" style={{marginBottom:16}}>
+      <div className="chdr">{title}</div>
+      <div style={{padding:20,color:"#5fa89e",fontSize:14,lineHeight:1.8}}>{children}</div>
+    </div>
+  );
+  return (
+    <div>
+      <Section title="Roster">
+        Each entry is 2 Team QBs, 2 Team Kickers, and 6 skill players (RB/WR/TE), plus a 7th
+        <strong style={{color:"#fff"}}> Swap Player</strong>. Player salaries are based on their
+        actual 2025 touchdown total. Entry cost is <strong style={{color:"#fff"}}>$50</strong>,
+        paid via Zelle to <strong style={{color:"#fff"}}>scott.wbeverly@gmail.com</strong>.
+      </Section>
+      <Section title="Salary Cap">
+        Your 2 Team QBs + 2 Team Kickers + 6 skill players cannot exceed
+        <strong style={{color:"#fff"}}> 146 total salary</strong>. Your Swap Player's salary is
+        not counted toward this cap when you submit — it only matters at the moment you actually
+        use the swap.
+      </Section>
+      <Section title="The Swap Rule">
+        You may replace <strong style={{color:"#fff"}}>one</strong> of your 6 skill players with
+        your designated Swap Player any time before Week 9. The swap-in cannot push your total
+        over 146 at the time you make it. Team QBs and Team Kickers can never be swapped. Once
+        you use your swap, your roster is locked for the rest of the season — there is no
+        changing your mind afterward. If you never use it, your original 6 simply play the full
+        season.
+      </Section>
+      <Section title="Pay Periods">
+        Scoring is tracked across <strong style={{color:"#fff"}}>3 periods</strong> — Weeks 1-6,
+        Weeks 7-12, and Weeks 13-18 — plus an Overall cumulative total across the full season.
+        Prize payouts will be announced once all entries are in.
+      </Section>
+      <Section title="A Few Things to Know">
+        Players may get hurt, retire, or lose their role during the season — that's part of the
+        game, and it's on you to track your own roster. Use the <strong style={{color:"#fff"}}>Ownership</strong> tab
+        to see how your picks compare to the rest of the pool.
+      </Section>
+    </div>
+  );
+}
+
+function NFLStandings() {
+  const [sec, setSec] = useState("standings");
+  const [period, setPeriod] = useState("Overall");
+  const [entries, setEntries] = useState(null);
+  const [entriesErr, setEntriesErr] = useState("");
+  const [stats, setStats] = useState(null);
+  const [statsErr, setStatsErr] = useState("");
+  const [expanded, setExpanded] = useState(null);
+
+  useEffect(() => {
+    if (!NFL_ENTRIES_CSV_URL) { setEntriesErr("Standings aren't connected yet."); return; }
+    fetch(NFL_ENTRIES_CSV_URL).then(r => r.text()).then(t => setEntries(parseNflEntriesCSV(t)))
+      .catch(() => setEntriesErr("Could not load entries."));
+  }, []);
+
+  useEffect(() => {
+    setStats(null); setStatsErr("");
+    fetchPeriodStats(period, NFL_SEASON_YEAR)
+      .then(setStats)
+      .catch(() => setStatsErr("Could not load stats for this period yet."));
+  }, [period]);
+
+  const tabs = [
+    {id:"standings",label:"Standings"},
+    {id:"ownership",label:"Ownership"},
+    {id:"scoring",label:"Scoring"},
+    {id:"rules",label:"Rules"},
+  ];
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:16,paddingBottom:2}}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setSec(t.id)}
+            style={{
+              flex:"0 0 auto", padding:"10px 16px", borderRadius:6, cursor:"pointer",
+              fontFamily:"var(--F)", fontSize:15, letterSpacing:1, whiteSpace:"nowrap",
+              background: sec===t.id ? "#ffd700" : "#0a1a1a",
+              color: sec===t.id ? "#000" : "#5fa89e",
+              border: sec===t.id ? "2px solid #ffd700" : "1px solid #1a3a3a",
+            }}>
+            {t.label.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {sec === "standings" && (
+        <NFLLeaderboard entries={entries} entriesErr={entriesErr} stats={stats} statsErr={statsErr}
+          period={period} setPeriod={setPeriod} expanded={expanded} setExpanded={setExpanded}/>
+      )}
+      {sec === "ownership" && <NFLOwnership entries={entries}/>}
+      {sec === "scoring" && <NFLScoring/>}
+      {sec === "rules" && <NFLRules/>}
     </div>
   );
 }
