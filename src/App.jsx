@@ -1834,7 +1834,7 @@ function NFLSwapForm() {
       player1: activeEntry.player1, player2: activeEntry.player2, player3: activeEntry.player3,
       player4: activeEntry.player4, player5: activeEntry.player5, player6: activeEntry.player6,
       swap: activeEntry.swap,
-      swapUsed: "true", swappedOutPlayer: oldName, swapWeek: String(weekNow),
+      swapUsed: "true", swappedOutPlayer: oldName, swapWeek: String(weekNow + 1),
       [selectedSlot]: activeEntry.swap,
     };
     fetch(NFL_SUBMIT_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) })
@@ -1902,7 +1902,10 @@ function NFLSwapForm() {
     <div>
       <div className="cap-bar-wrap" style={{marginBottom:16}}>
         <div style={{fontFamily:"var(--F)",fontSize:16,color:"#00c4b4",marginBottom:6}}>SWAP PLAYER: {activeEntry.swap} ({swapSalary})</div>
-        <div style={{fontSize:12,color:"#5fa89e"}}>Pick which player he replaces below. Your total must stay at or under 146.</div>
+        <div style={{fontSize:12,color:"#5fa89e",marginBottom:8}}>Pick which player he replaces below. Your total must stay at or under 146.</div>
+        <div style={{fontSize:12,color:"#ffd700"}}>
+          This takes effect starting Week {weekNow + 1} — whoever you replace keeps their points through Week {weekNow}, even if their game already happened.
+        </div>
       </div>
       {skillSlots.map(s => {
         const proj = projectedSalary(s.name);
