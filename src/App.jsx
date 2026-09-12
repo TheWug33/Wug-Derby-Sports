@@ -364,43 +364,66 @@ function currentNflWeek() {
   return Math.min(18, Math.floor(diffDays / 7) + 1);
 }
 
+// Swap Player window: usable through Week 9, locked once Week 10 begins.
+const NFL_SWAP_LOCK_WEEK = 10;
+
 async function fetchWeeksStats(weeks, year) {
   const playedWeeks = weeks.filter(w => w <= currentNflWeek());
-  const teams = {}, players = {};
-  if (playedWeeks.length === 0) return {teams, players, noGamesYet: true};
+  const teams = {}, players = {}, byWeek = {};
+  if (playedWeeks.length === 0) return {teams, players, noGamesYet: true, byWeek};
 
   // allSettled, not all: a single slow or failed week shouldn't blank the entire
   // leaderboard -- show the weeks that did load.
   const settled = await Promise.allSettled(
     playedWeeks.map(w => fetch(`/api/nfl-week?week=${w}&year=${year}`).then(r => r.json()))
   );
-  const results = settled.filter(s => s.status === "fulfilled").map(s => s.value);
 
   const bump = (obj, key, field, amount) => {
     if (!amount) return;
     if (!obj[key]) obj[key] = {};
     obj[key][field] = (obj[key][field] || 0) + amount;
   };
-  for (const wk of results) {
-    for (const [team, s] of Object.entries(wk.teams || {})) {
-      bump(teams, team, "passingTD", s.passingTD || 0);
-      bump(teams, team, "fgMade", s.fgMade || 0);
+  settled.forEach((s, idx) => {
+    if (s.status !== "fulfilled") return;
+    const wk = s.value;
+    byWeek[playedWeeks[idx]] = wk; // keep raw per-week data -- needed to split a swapped slot's score
+    for (const [team, st] of Object.entries(wk.teams || {})) {
+      bump(teams, team, "passingTD", st.passingTD || 0);
+      bump(teams, team, "fgMade", st.fgMade || 0);
     }
-    for (const [name, s] of Object.entries(wk.players || {})) {
-      bump(players, name, "rushTD", s.rushTD || 0);
-      bump(players, name, "recTD", s.recTD || 0);
+    for (const [name, st] of Object.entries(wk.players || {})) {
+      bump(players, name, "rushTD", st.rushTD || 0);
+      bump(players, name, "recTD", st.recTD || 0);
     }
-  }
+  });
   for (const name of Object.keys(players)) {
     players[name].totalTD = (players[name].rushTD||0) + (players[name].recTD||0);
   }
   const failedWeeks = settled.filter(s => s.status === "rejected").length;
-  return {teams, players, failedWeeks};
+  return {teams, players, failedWeeks, byWeek};
 }
 
 function fetchPeriodStats(periodName, year) {
   const weeks = periodName === "Overall" ? weeksThroughPeriod("Period 3") : NFL_PERIODS[periodName];
   return fetchWeeksStats(weeks, year);
+}
+
+// Scores a single skill-player slot for a set of weeks, correctly splitting credit
+// around a mid-season swap: weeks before the swap took effect count the ORIGINAL
+// player's TDs, weeks from the swap onward count the NEW (swapped-in) player's TDs.
+function scoreSkillSlotWithSwap(currentName, weeks, stats, swapInfo) {
+  if (!swapInfo || currentName !== swapInfo.newPlayer) {
+    return (stats.players[currentName]?.totalTD || 0) * 6;
+  }
+  let td = 0;
+  for (const w of weeks) {
+    const wk = stats.byWeek[w];
+    if (!wk) continue;
+    const name = w < swapInfo.swapWeek ? swapInfo.oldPlayer : swapInfo.newPlayer;
+    const p = wk.players?.[name];
+    if (p) td += (p.rushTD||0) + (p.recTD||0);
+  }
+  return td * 6;
 }
 
 function scoreRoster(roster, stats) {
@@ -1414,7 +1437,7 @@ function NFLEntryForm() {
         <div className="form-section-hdr"><span><span className="num">04 - </span>SWAP PLAYER</span></div>
         <div style={{padding:20}}>
           <div style={{fontSize:12,color:"#5fa89e",marginBottom:10}}>
-            Designate a 7th player who can replace one of your 6 before Week 9. Doesn't count toward your salary cap now — but can't push you over 146 at the time you swap him in.
+            Designate a 7th player who can replace one of your 6 before Week 10. Doesn't count toward your salary cap now — but can't push you over 146 at the time you swap him in.
           </div>
           <SearchSelect
             options={NFL_PLAYER_POOL.map(p => ({value: p.name, label: `${p.name} (${p.team}, ${p.tds})`}))}
@@ -1448,16 +1471,33 @@ function salaryFor(slot, name) {
 }
 
 function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod, expanded, setExpanded}) {
+  const periodWeeks = period === "Overall" ? weeksThroughPeriod("Period 3") : NFL_PERIODS[period];
+
   const leaderboard = (entries && stats) ? entries.map(e => {
-    const roster = {
-      qb: [e.qb1, e.qb2], k: [e.k1, e.k2],
-      skill: [e.player1, e.player2, e.player3, e.player4, e.player5, e.player6],
-    };
-    const {total, breakdown} = scoreRoster(roster, stats);
+    const skillNames = [e.player1, e.player2, e.player3, e.player4, e.player5, e.player6];
+    const swapInfo = e.swapUsed === "true"
+      ? { oldPlayer: e.swappedOutPlayer, newPlayer: e.swap, swapWeek: Number(e.swapWeek) || 0 }
+      : null;
+
+    let total = 0;
+    const breakdown = [];
+    for (const teamName of [e.qb1, e.qb2]) {
+      const pts = (stats.teams[teamName]?.passingTD || 0) * 6;
+      total += pts; breakdown.push({slot:"QB", name:teamName, pts});
+    }
+    for (const teamName of [e.k1, e.k2]) {
+      const pts = (stats.teams[teamName]?.fgMade || 0) * 3;
+      total += pts; breakdown.push({slot:"K", name:teamName, pts});
+    }
+    for (const playerName of skillNames) {
+      const pts = scoreSkillSlotWithSwap(playerName, periodWeeks, stats, swapInfo);
+      total += pts; breakdown.push({slot:"Skill", name:playerName, pts});
+    }
+
     const fullBreakdown = [...breakdown];
-    if (e.swap) fullBreakdown.push({slot:"Swap", name:e.swap, pts:null});
+    if (e.swap && e.swapUsed !== "true") fullBreakdown.push({slot:"Swap", name:e.swap, pts:null});
     const displayName = (e.teamName && e.teamName.trim()) || e.name || "Unnamed";
-    return {...e, displayName, total, breakdown: fullBreakdown};
+    return {...e, displayName, total, breakdown: fullBreakdown, swapInfo};
   }).sort((a,b) => b.total - a.total) : [];
 
   // Ownership %, tracked separately per category -- a team picked as someone's QB and
@@ -1564,6 +1604,15 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
                       </div>
                     </div>
                   ))}
+                  {e.swapInfo && (
+                    <div style={{
+                      marginTop:8, padding:"8px 12px", borderRadius:6,
+                      background:"rgba(0,196,180,.08)", border:"1px solid #0a3a35",
+                      fontSize:12, color:"#00c4b4",
+                    }}>
+                      ✅ Swap activated Week {e.swapInfo.swapWeek}: {e.swapInfo.oldPlayer} → {e.swapInfo.newPlayer}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1685,7 +1734,7 @@ function NFLRules() {
       </Section>
       <Section title="The Swap Rule">
         You may replace <strong style={{color:"#fff"}}>one</strong> of your 6 skill players with
-        your designated Swap Player any time before Week 9. The swap-in cannot push your total
+        your designated Swap Player any time before Week 10. The swap-in cannot push your total
         over 146 at the time you make it. Team QBs and Team Kickers can never be swapped. Once
         you use your swap, your roster is locked for the rest of the season — there is no
         changing your mind afterward. If you never use it, your original 6 simply play the full
@@ -1703,6 +1752,195 @@ function NFLRules() {
       </Section>
     </div>
   );
+}
+
+function NFLSwapForm() {
+  const [step, setStep] = useState("lookup");
+  const [lookupName, setLookupName] = useState("");
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+  const [entries, setEntries] = useState([]);
+  const [activeEntry, setActiveEntry] = useState(null);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinVerifying, setPinVerifying] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const weekNow = currentNflWeek();
+  const windowClosed = weekNow >= NFL_SWAP_LOCK_WEEK;
+
+  const handleLookup = () => {
+    setLookupError("");
+    if (!lookupName.trim()) { setLookupError("Please enter your name."); return; }
+    if (!lookupEmail.trim() || !lookupEmail.includes("@")) { setLookupError("Please enter a valid email."); return; }
+    if (!NFL_SUBMIT_URL) { setLookupError("Not connected yet."); return; }
+    setLookupLoading(true);
+    fetch(NFL_SUBMIT_URL + "?email=" + encodeURIComponent(lookupEmail.trim()))
+      .then(r => r.json())
+      .then(data => {
+        const found = data.submissions || [];
+        setEntries(found);
+        setLookupLoading(false);
+        if (found.length === 0) setLookupError("No entries found for that name/email.");
+        else setStep("choose");
+      })
+      .catch(() => { setLookupError("Could not check entries. Try again."); setLookupLoading(false); });
+  };
+
+  const openEntry = (entry) => {
+    setSubmitError(""); setSelectedSlot(null); setActiveEntry(entry);
+    if (entry.pinHash) { setPinInput(""); setPinError(""); setStep("pin"); }
+    else setStep("swap");
+  };
+
+  const verifyPin = async () => {
+    setPinError("");
+    if (!pinInput.trim()) { setPinError("Enter your PIN."); return; }
+    setPinVerifying(true);
+    const hash = await hashPin(pinInput.trim());
+    setPinVerifying(false);
+    if (hash === activeEntry.pinHash) setStep("swap");
+    else setPinError("That PIN doesn't match.");
+  };
+
+  const skillSlots = activeEntry ? [
+    {key:"player1", name:activeEntry.player1}, {key:"player2", name:activeEntry.player2},
+    {key:"player3", name:activeEntry.player3}, {key:"player4", name:activeEntry.player4},
+    {key:"player5", name:activeEntry.player5}, {key:"player6", name:activeEntry.player6},
+  ] : [];
+
+  const currentSalary = activeEntry ? (
+    salaryFor("QB", activeEntry.qb1) + salaryFor("QB", activeEntry.qb2) +
+    salaryFor("K", activeEntry.k1) + salaryFor("K", activeEntry.k2) +
+    skillSlots.reduce((s,p) => s + salaryFor("Skill", p.name), 0)
+  ) : 0;
+  const swapSalary = activeEntry ? salaryFor("Skill", activeEntry.swap) : 0;
+  const projectedSalary = (slotName) => currentSalary - salaryFor("Skill", slotName) + swapSalary;
+
+  const confirmSwap = () => {
+    setSubmitError("");
+    if (!selectedSlot) { setSubmitError("Pick a player to replace first."); return; }
+    const oldName = activeEntry[selectedSlot];
+    const newTotal = projectedSalary(oldName);
+    if (newTotal > 146) { setSubmitError(`This would put you at ${newTotal}/146 — over the cap. Pick a different player.`); return; }
+    setSubmitting(true);
+    const payload = {
+      name: activeEntry.name, email: activeEntry.email, entryNumber: activeEntry.entryNumber,
+      teamName: activeEntry.teamName || "", pinHash: activeEntry.pinHash || "",
+      qb1: activeEntry.qb1, qb2: activeEntry.qb2, k1: activeEntry.k1, k2: activeEntry.k2,
+      player1: activeEntry.player1, player2: activeEntry.player2, player3: activeEntry.player3,
+      player4: activeEntry.player4, player5: activeEntry.player5, player6: activeEntry.player6,
+      swap: activeEntry.swap,
+      swapUsed: "true", swappedOutPlayer: oldName, swapWeek: String(weekNow),
+      [selectedSlot]: activeEntry.swap,
+    };
+    fetch(NFL_SUBMIT_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) })
+      .then(() => { setStep("done"); setSubmitting(false); })
+      .catch(() => { setSubmitError("Something went wrong. Try again."); setSubmitting(false); });
+  };
+
+  if (windowClosed) return (
+    <div className="card"><div style={{padding:24,textAlign:"center",color:"#e84545"}}>
+      🔒 The Swap Player window closed at the start of Week {NFL_SWAP_LOCK_WEEK}. No further swaps can be made this season.
+    </div></div>
+  );
+
+  if (step === "lookup") return (
+    <div className="form-section">
+      <div className="form-section-hdr"><span>FIND YOUR ENTRY</span></div>
+      <div style={{padding:"14px 20px 0",fontSize:13,color:"#5fa89e",lineHeight:1.6}}>
+        Enter the same name and email you used when you submitted your picks.
+      </div>
+      <div className="form-group">
+        <label className="form-label">Your Name</label>
+        <input className="form-input" value={lookupName} onChange={e=>setLookupName(e.target.value)} placeholder="First and last name"/>
+      </div>
+      <div className="form-group">
+        <label className="form-label">Email Address</label>
+        <input className="form-input" type="email" value={lookupEmail} onChange={e=>setLookupEmail(e.target.value)} placeholder="your@email.com" onKeyDown={e=>e.key==="Enter"&&handleLookup()}/>
+      </div>
+      {lookupError && <div className="error-msg" style={{margin:"0 20px 16px"}}>{lookupError}</div>}
+      <div style={{padding:"16px 20px"}}>
+        <button className="submit-btn" onClick={handleLookup} disabled={lookupLoading}>{lookupLoading?"CHECKING...":"FIND MY ENTRY"}</button>
+      </div>
+    </div>
+  );
+
+  if (step === "choose") return (
+    <div>
+      <div style={{fontSize:14,color:"#5fa89e",marginBottom:16}}>Found {entries.length} {entries.length===1?"entry":"entries"}.</div>
+      {entries.map((entry,i) => (
+        <div key={i} style={{background:"#0a1a1a",border:"1px solid #fff",borderRadius:8,padding:16,marginBottom:12}}>
+          <div style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4",marginBottom:8}}>
+            {entry.pinHash && "🔒 "}{entry.teamName || "Entry " + entry.entryNumber}
+          </div>
+          {entry.swapUsed === "true" ? (
+            <div style={{fontSize:13,color:"#00c4b4"}}>✅ Swap already used in Week {entry.swapWeek}: {entry.swappedOutPlayer} → {entry.swap}</div>
+          ) : (
+            <button className="submit-btn" style={{fontSize:15,padding:10}} onClick={()=>openEntry(entry)}>MAKE MY SWAP</button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  if (step === "pin") return (
+    <div className="form-section">
+      <div className="form-section-hdr"><span>🔒 ENTER YOUR PIN</span></div>
+      <div style={{padding:20}}>
+        <input className="form-input" type="password" inputMode="numeric" placeholder="4-digit PIN" value={pinInput} onChange={e=>setPinInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&verifyPin()} style={{textAlign:"center",fontSize:24,letterSpacing:6}}/>
+        {pinError && <div className="error-msg" style={{marginTop:12}}>{pinError}</div>}
+        <button className="submit-btn" style={{marginTop:16}} onClick={verifyPin} disabled={pinVerifying}>{pinVerifying?"CHECKING...":"UNLOCK"}</button>
+      </div>
+    </div>
+  );
+
+  if (step === "swap" && activeEntry) return (
+    <div>
+      <div className="cap-bar-wrap" style={{marginBottom:16}}>
+        <div style={{fontFamily:"var(--F)",fontSize:16,color:"#00c4b4",marginBottom:6}}>SWAP PLAYER: {activeEntry.swap} ({swapSalary})</div>
+        <div style={{fontSize:12,color:"#5fa89e"}}>Pick which player he replaces below. Your total must stay at or under 146.</div>
+      </div>
+      {skillSlots.map(s => {
+        const proj = projectedSalary(s.name);
+        const over = proj > 146;
+        return (
+          <div key={s.key} onClick={()=>setSelectedSlot(s.key)} style={{
+            background: selectedSlot===s.key ? "rgba(0,196,180,.1)" : "#0a1a1a",
+            border: selectedSlot===s.key ? "2px solid #00c4b4" : "1px solid #1a3a3a",
+            borderRadius:8, padding:14, marginBottom:10, cursor:"pointer",
+            display:"flex", justifyContent:"space-between", alignItems:"center",
+          }}>
+            <div>
+              <div style={{fontWeight:600}}>{s.name}</div>
+              <div style={{fontSize:11,color:"#5fa89e"}}>Salary {salaryFor("Skill",s.name)}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:11,color:"#5fa89e"}}>New total</div>
+              <div style={{fontWeight:700,color: over ? "#e84545" : "#00c4b4"}}>{proj}/146</div>
+            </div>
+          </div>
+        );
+      })}
+      {submitError && <div className="error-msg">{submitError}</div>}
+      <button className="submit-btn" onClick={confirmSwap} disabled={submitting || !selectedSlot}>
+        {submitting ? "SAVING..." : "CONFIRM SWAP — THIS CANNOT BE UNDONE"}
+      </button>
+    </div>
+  );
+
+  if (step === "done") return (
+    <div className="success-screen">
+      <div className="success-icon">✅</div>
+      <div className="success-title">SWAP LOCKED IN</div>
+      <div className="success-sub">Your roster is now locked for the rest of the season.</div>
+    </div>
+  );
+
+  return null;
 }
 
 function NFLStandings() {
@@ -1729,6 +1967,7 @@ function NFLStandings() {
 
   const tabs = [
     {id:"standings",label:"Standings"},
+    {id:"swap",label:"Swap"},
     {id:"ownership",label:"Ownership"},
     {id:"scoring",label:"Scoring"},
     {id:"rules",label:"Rules"},
@@ -1736,12 +1975,12 @@ function NFLStandings() {
 
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:6,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5, 1fr)",gap:5,marginBottom:16}}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setSec(t.id)}
             style={{
-              padding:"9px 4px", borderRadius:6, cursor:"pointer",
-              fontFamily:"var(--F)", fontSize:12, letterSpacing:0.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+              padding:"9px 2px", borderRadius:6, cursor:"pointer",
+              fontFamily:"var(--F)", fontSize:11, letterSpacing:0.3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
               background: sec===t.id ? "#ffd700" : "#0a1a1a",
               color: sec===t.id ? "#000" : "#5fa89e",
               border: sec===t.id ? "2px solid #ffd700" : "1px solid #1a3a3a",
@@ -1755,6 +1994,7 @@ function NFLStandings() {
         <NFLLeaderboard entries={entries} entriesErr={entriesErr} stats={stats} statsErr={statsErr}
           period={period} setPeriod={setPeriod} expanded={expanded} setExpanded={setExpanded}/>
       )}
+      {sec === "swap" && <NFLSwapForm/>}
       {sec === "ownership" && <NFLOwnership entries={entries}/>}
       {sec === "scoring" && <NFLScoring/>}
       {sec === "rules" && <NFLRules/>}
@@ -2527,7 +2767,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
               >
                 <div><strong style={{color:"#ffd700"}}>Roster:</strong> 2 Team QBs, 2 Team Kickers, 6 skill players, 1 Swap Player</div>
                 <div><strong style={{color:"#ffd700"}}>Cap:</strong> 146 total (salaries from 2025 stats)</div>
-                <div><strong style={{color:"#ffd700"}}>Swap:</strong> One swap allowed before Week 9; can't exceed the cap; QB/K can't be swapped</div>
+                <div><strong style={{color:"#ffd700"}}>Swap:</strong> One swap allowed before Week 10; can't exceed the cap; QB/K can't be swapped</div>
                 <div><strong style={{color:"#ffd700"}}>Scoring:</strong> Rush/Rec/Pass TD = 6 pts, FG = 3 pts, XP = 0</div>
                 <div><strong style={{color:"#ffd700"}}>Pay Periods:</strong> Wks 1-6, 7-12, 13-18, + Overall</div>
                 <div><strong style={{color:"#ffd700"}}>Entry:</strong> $50, due by Week 2</div>
