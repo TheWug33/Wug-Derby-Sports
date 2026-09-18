@@ -1676,6 +1676,60 @@ function NFLOwnership({entries}) {
   );
 }
 
+function NFLPayouts() {
+  return (
+    <div>
+      <div className="card" style={{marginBottom:16}}>
+        <div className="chdr">Pay Periods <span style={{marginLeft:"auto",fontSize:11,fontFamily:"var(--B)",color:"#5fa89e",fontWeight:400}}>Same payout for all 3</span></div>
+        <div style={{padding:20}}>
+          <div style={{fontSize:12,color:"#5fa89e",marginBottom:14}}>Weeks 1-6, 7-12, and 13-18 each pay out separately, on top of Overall.</div>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <tbody>
+              <tr style={{borderBottom:"1px solid #1a3a3a"}}>
+                <td style={{padding:"8px 0",color:"#fff"}}>1st Place</td>
+                <td style={{padding:"8px 0",textAlign:"right",fontWeight:700,color:"#00c4b4"}}>$60</td>
+              </tr>
+              <tr>
+                <td style={{padding:"8px 0",color:"#fff"}}>2nd Place</td>
+                <td style={{padding:"8px 0",textAlign:"right",fontWeight:700,color:"#00c4b4"}}>$40</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{marginBottom:16}}>
+        <div className="chdr">Overall <span style={{marginLeft:"auto",fontSize:11,fontFamily:"var(--B)",color:"#ffd700",fontWeight:400}}>Full Season</span></div>
+        <div style={{padding:20}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <tbody>
+              <tr style={{borderBottom:"1px solid #1a3a3a"}}>
+                <td style={{padding:"8px 0",color:"#fff"}}>1st Place</td>
+                <td style={{padding:"8px 0",textAlign:"right",fontWeight:700,color:"#ffd700"}}>$500</td>
+              </tr>
+              <tr style={{borderBottom:"1px solid #1a3a3a"}}>
+                <td style={{padding:"8px 0",color:"#fff"}}>2nd Place</td>
+                <td style={{padding:"8px 0",textAlign:"right",fontWeight:700,color:"#ffd700"}}>$300</td>
+              </tr>
+              <tr>
+                <td style={{padding:"8px 0",color:"#fff"}}>3rd Place</td>
+                <td style={{padding:"8px 0",textAlign:"right",fontWeight:700,color:"#ffd700"}}>$200</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <div style={{padding:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,color:"#5fa89e"}}>26 teams × $50 entry</span>
+          <span style={{fontFamily:"var(--F)",fontSize:20,color:"#00c4b4",letterSpacing:1}}>$1,300 TOTAL POT</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NFLScoring() {
   const rows = [
     ["Rushing / Receiving / Passing TD", "6 pts"],
@@ -1970,6 +2024,7 @@ function NFLStandings() {
 
   const tabs = [
     {id:"standings",label:"Standings"},
+    {id:"payouts",label:"Payouts"},
     {id:"swap",label:"Swap"},
     {id:"ownership",label:"Ownership"},
     {id:"scoring",label:"Scoring"},
@@ -1978,12 +2033,12 @@ function NFLStandings() {
 
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5, 1fr)",gap:5,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6, 1fr)",gap:4,marginBottom:16}}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setSec(t.id)}
             style={{
-              padding:"9px 2px", borderRadius:6, cursor:"pointer",
-              fontFamily:"var(--F)", fontSize:11, letterSpacing:0.3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+              padding:"9px 1px", borderRadius:6, cursor:"pointer",
+              fontFamily:"var(--F)", fontSize:10, letterSpacing:0.2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
               background: sec===t.id ? "#ffd700" : "#0a1a1a",
               color: sec===t.id ? "#000" : "#5fa89e",
               border: sec===t.id ? "2px solid #ffd700" : "1px solid #1a3a3a",
@@ -1997,6 +2052,7 @@ function NFLStandings() {
         <NFLLeaderboard entries={entries} entriesErr={entriesErr} stats={stats} statsErr={statsErr}
           period={period} setPeriod={setPeriod} expanded={expanded} setExpanded={setExpanded}/>
       )}
+      {sec === "payouts" && <NFLPayouts/>}
       {sec === "swap" && <NFLSwapForm/>}
       {sec === "ownership" && <NFLOwnership entries={entries}/>}
       {sec === "scoring" && <NFLScoring/>}
