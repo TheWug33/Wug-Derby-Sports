@@ -1470,12 +1470,16 @@ function salaryFor(slot, name) {
   return NFL_PLAYER_POOL.find(p => p.name === name)?.tds ?? 0;
 }
 
+// Google Sheets auto-detects "true"/"false" text as boolean cells and exports them as
+// TRUE/FALSE (uppercase) via CSV -- never compare swapUsed with a strict === "true".
+const isSwapUsed = (v) => String(v || "").trim().toLowerCase() === "true";
+
 function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod, expanded, setExpanded}) {
   const periodWeeks = period === "Overall" ? weeksThroughPeriod("Period 3") : NFL_PERIODS[period];
 
   const leaderboard = (entries && stats) ? entries.map(e => {
     const skillNames = [e.player1, e.player2, e.player3, e.player4, e.player5, e.player6];
-    const swapInfo = e.swapUsed === "true"
+    const swapInfo = isSwapUsed(e.swapUsed)
       ? { oldPlayer: e.swappedOutPlayer, newPlayer: e.swap, swapWeek: Number(e.swapWeek) || 0 }
       : null;
 
@@ -1495,7 +1499,7 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
     }
 
     const fullBreakdown = [...breakdown];
-    if (e.swap && e.swapUsed !== "true") fullBreakdown.push({slot:"Swap", name:e.swap, pts:null});
+    if (e.swap && !isSwapUsed(e.swapUsed)) fullBreakdown.push({slot:"Swap", name:e.swap, pts:null});
     const displayName = (e.teamName && e.teamName.trim()) || e.name || "Unnamed";
     return {...e, displayName, total, breakdown: fullBreakdown, swapInfo};
   }).sort((a,b) => b.total - a.total) : [];
@@ -1931,7 +1935,7 @@ function NFLSwapForm() {
           <div style={{fontFamily:"var(--F)",fontSize:18,color:"#00c4b4",marginBottom:8}}>
             {entry.pinHash && "🔒 "}{entry.teamName || "Entry " + entry.entryNumber}
           </div>
-          {entry.swapUsed === "true" ? (
+          {isSwapUsed(entry.swapUsed) ? (
             <div style={{fontSize:13,color:"#00c4b4"}}>✅ Swap already used in Week {entry.swapWeek}: {entry.swappedOutPlayer} → {entry.swap}</div>
           ) : (
             <button className="submit-btn" style={{fontSize:15,padding:10}} onClick={()=>openEntry(entry)}>MAKE MY SWAP</button>
