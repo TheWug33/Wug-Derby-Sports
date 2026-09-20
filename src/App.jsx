@@ -1584,16 +1584,24 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
               {expanded === i && (
                 <div style={{padding:"0 20px 16px 60px"}}>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    {e.breakdown.filter(b => b.slot !== "Swap").map((b,j) => (
-                      <div key={j} className="breakdown-cell" style={{display:"flex",flexDirection:"column",justifyContent:"flex-start",gap:4,alignItems:"stretch"}}>
-                        <span style={{fontSize:11,color:"#5fa89e",lineHeight:1.3}}>{b.slot}: {b.name}</span>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span style={{fontSize:16,fontWeight:700,color:"#ffd700"}}>{salaryFor(b.slot,b.name)}</span>
-                          <span style={{fontSize:16,fontWeight:700,color:"#fff"}}>{b.pts}</span>
+                    {e.breakdown.filter(b => b.slot !== "Swap").map((b,j) => {
+                      const wasSwapped = e.swapInfo && b.name === e.swapInfo.newPlayer;
+                      return (
+                        <div key={j} className="breakdown-cell" style={{display:"flex",flexDirection:"column",justifyContent:"flex-start",gap:4,alignItems:"stretch"}}>
+                          <span style={{fontSize:11,color:"#5fa89e",lineHeight:1.3}}>{b.slot}: {b.name}</span>
+                          {wasSwapped && (
+                            <span style={{fontSize:10,color:"#e84545",lineHeight:1.3}}>
+                              {e.swapInfo.oldPlayer} <span style={{background:"#e84545",color:"#000",borderRadius:3,padding:"1px 4px",fontWeight:700,marginLeft:2}}>OUT</span>
+                            </span>
+                          )}
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <span style={{fontSize:16,fontWeight:700,color:"#ffd700"}}>{salaryFor(b.slot,b.name)}</span>
+                            <span style={{fontSize:16,fontWeight:700,color:"#fff"}}>{b.pts}</span>
+                          </div>
+                          <div style={{fontSize:10,color:"#5fa89e",textAlign:"right"}}>{ownPct(b.slot,b.name)}% owned</div>
                         </div>
-                        <div style={{fontSize:10,color:"#5fa89e",textAlign:"right"}}>{ownPct(b.slot,b.name)}% owned</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {e.breakdown.filter(b => b.slot === "Swap").map((b,j) => (
                     <div key={j} style={{
@@ -1826,9 +1834,36 @@ function NFLSwapForm() {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [effectiveWeek, setEffectiveWeek] = useState(null);
+  const [effectiveWeekError, setEffectiveWeekError] = useState("");
 
   const weekNow = currentNflWeek();
   const windowClosed = weekNow >= NFL_SWAP_LOCK_WEEK;
+
+  // Determines the real effective week by checking whether that week's games have
+  // actually kicked off yet (via ESPN), not just calendar math -- so a swap made any
+  // time before that week's first game counts the same, whether it's Tuesday or
+  // Wednesday night, but still gets pushed a week if a game has already started.
+  useEffect(() => {
+    if (step !== "swap") return;
+    setEffectiveWeek(null); setEffectiveWeekError("");
+    let cancelled = false;
+    const candidate = currentNflWeek();
+    fetch(`/api/nfl-week?week=${candidate}&year=${NFL_SEASON_YEAR}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setEffectiveWeek(data.anyGameStarted ? candidate + 1 : candidate);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Can't verify -- default to the more conservative outcome (push a week) rather
+        // than risk letting someone dodge a game that already happened.
+        setEffectiveWeekError("Couldn't confirm this week's game status, so we're playing it safe.");
+        setEffectiveWeek(candidate + 1);
+      });
+    return () => { cancelled = true; };
+  }, [step]);
 
   const handleLookup = () => {
     setLookupError("");
@@ -1881,6 +1916,7 @@ function NFLSwapForm() {
   const confirmSwap = () => {
     setSubmitError("");
     if (!selectedSlot) { setSubmitError("Pick a player to replace first."); return; }
+    if (!effectiveWeek) { setSubmitError("Still checking this week's game status — try again in a moment."); return; }
     const oldName = activeEntry[selectedSlot];
     const newTotal = projectedSalary(oldName);
     if (newTotal > 146) { setSubmitError(`This would put you at ${newTotal}/146 — over the cap. Pick a different player.`); return; }
@@ -1892,7 +1928,7 @@ function NFLSwapForm() {
       player1: activeEntry.player1, player2: activeEntry.player2, player3: activeEntry.player3,
       player4: activeEntry.player4, player5: activeEntry.player5, player6: activeEntry.player6,
       swap: activeEntry.swap,
-      swapUsed: "true", swappedOutPlayer: oldName, swapWeek: String(weekNow + 1),
+      swapUsed: "true", swappedOutPlayer: oldName, swapWeek: String(effectiveWeek),
       [selectedSlot]: activeEntry.swap,
     };
     fetch(NFL_SUBMIT_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) })
@@ -1961,9 +1997,14 @@ function NFLSwapForm() {
       <div className="cap-bar-wrap" style={{marginBottom:16}}>
         <div style={{fontFamily:"var(--F)",fontSize:16,color:"#00c4b4",marginBottom:6}}>SWAP PLAYER: {activeEntry.swap} ({swapSalary})</div>
         <div style={{fontSize:12,color:"#5fa89e",marginBottom:8}}>Pick which player he replaces below. Your total must stay at or under 146.</div>
-        <div style={{fontSize:12,color:"#ffd700"}}>
-          This takes effect starting Week {weekNow + 1} — whoever you replace keeps their points through Week {weekNow}, even if their game already happened.
-        </div>
+        {effectiveWeek === null ? (
+          <div style={{fontSize:12,color:"#5fa89e"}}>Checking this week's game status...</div>
+        ) : (
+          <div style={{fontSize:12,color:"#ffd700"}}>
+            This takes effect starting Week {effectiveWeek} — whoever you replace keeps their points through the games already played, even if this week's already started.
+          </div>
+        )}
+        {effectiveWeekError && <div style={{fontSize:11,color:"#e84545",marginTop:4}}>{effectiveWeekError}</div>}
       </div>
       {skillSlots.map(s => {
         const proj = projectedSalary(s.name);
@@ -1987,8 +2028,8 @@ function NFLSwapForm() {
         );
       })}
       {submitError && <div className="error-msg">{submitError}</div>}
-      <button className="submit-btn" onClick={confirmSwap} disabled={submitting || !selectedSlot}>
-        {submitting ? "SAVING..." : "CONFIRM SWAP — THIS CANNOT BE UNDONE"}
+      <button className="submit-btn" onClick={confirmSwap} disabled={submitting || !selectedSlot || effectiveWeek === null}>
+        {submitting ? "SAVING..." : effectiveWeek === null ? "CHECKING GAME STATUS..." : "CONFIRM SWAP — THIS CANNOT BE UNDONE"}
       </button>
     </div>
   );
