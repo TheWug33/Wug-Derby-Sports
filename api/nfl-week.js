@@ -7,12 +7,20 @@
 //   week, year,
 //   teams:   { "Washington Commanders": { passingTD, fgMade } },
 //   players: { "Brock Bowers": { rushTD, recTD, totalTD } },
-//   flagged: [ { team, player, attempts, passingTD, week, note } ]
+//   flagged: [ { team, player, attempts, passingTD, week, note } ],
+//   anyGameStarted: boolean   -- true if ANY game in this week has kicked off (state !== "pre")
 // }
 //
 // teams[name].passingTD  -> Team QB slot: (passing TD + the QB's own rushing TD) * 6
 // teams[name].fgMade     -> Team Kicker slot: fgMade * 3
 // players[name].totalTD  -> Skill player slot: totalTD * 6  (rush+rec only, per rules)
+//
+// anyGameStarted is used to decide when a Swap Player move takes effect: if the target
+// week already has a game in progress or completed, the swap has to wait for the
+// following week instead -- this is checked live against ESPN's actual kickoff status,
+// not just a calendar-day calculation, so it treats "Tuesday before kickoff" and
+// "Wednesday before kickoff" the same way, but still blocks a swap made after a game in
+// that week has already started.
 //
 // Known limitation: a team's "passer(s)" are identified as whoever appears in the
 // box score's passing category. On the rare trick play where a non-QB throws a TD
@@ -32,6 +40,8 @@ export default async function handler(req, res) {
     if (!sbRes.ok) throw new Error(`scoreboard fetch failed: ${sbRes.status}`);
     const sb = await sbRes.json();
     const events = sb.events || [];
+
+    const anyGameStarted = events.some((ev) => ev?.status?.type?.state && ev.status.type.state !== "pre");
 
     const teams = {};
     const players = {};
@@ -127,7 +137,7 @@ export default async function handler(req, res) {
     }
 
     res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=300");
-    res.status(200).json({ week: Number(week), year: Number(year), teams, players, flagged });
+    res.status(200).json({ week: Number(week), year: Number(year), teams, players, flagged, anyGameStarted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
