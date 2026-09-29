@@ -28,6 +28,16 @@
 // entirely (per the written rule). Flagged entries below call these out for a
 // manual look -- low pass attempts + a passing TD is the tell.
 
+// ESPN's box score data uses full city names ("Los Angeles Chargers", "New York Jets"),
+// but the pool's picks and salary data use the shorter, commonly-known form ("LA Chargers",
+// "NY Jets") -- the same short form everyone actually drafted from. Los Angeles and New
+// York are the NFL's only two cities with two teams each, so these are the only names
+// that can ever mismatch. Without this, stats for these 4 teams silently look up to
+// nothing and score as zero, even though the games themselves are being read correctly.
+function normTeamName(name) {
+  return (name || "").replace(/^Los Angeles /, "LA ").replace(/^New York /, "NY ");
+}
+
 export default async function handler(req, res) {
   try {
     const { week, year, seasontype = "2" } = req.query;
@@ -69,7 +79,7 @@ export default async function handler(req, res) {
     for (const sum of summaries) {
       const teamBlocks = sum?.boxscore?.players || [];
       for (const block of teamBlocks) {
-        const teamName = block.team?.displayName;
+        const teamName = normTeamName(block.team?.displayName);
         if (!teamName) continue;
 
         const passing = (block.statistics || []).find((c) => c.name === "passing");
