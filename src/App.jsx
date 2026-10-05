@@ -1474,10 +1474,12 @@ function salaryFor(slot, name) {
 // TRUE/FALSE (uppercase) via CSV -- never compare swapUsed with a strict === "true".
 const isSwapUsed = (v) => String(v || "").trim().toLowerCase() === "true";
 
-function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod, expanded, setExpanded}) {
-  const periodWeeks = period === "Overall" ? weeksThroughPeriod("Period 3") : NFL_PERIODS[period];
-
-  const leaderboard = (entries && stats) ? entries.map(e => {
+// Builds the scored, sorted leaderboard for a set of entries against a given period's
+// stats. Shared by the full Standings tab and the Dashboard's top-5 summary, so both
+// always agree -- fixing scoring once here fixes it everywhere it's shown.
+function buildNflLeaderboard(entries, stats, periodWeeks) {
+  if (!entries || !stats) return [];
+  return entries.map(e => {
     const skillNames = [e.player1, e.player2, e.player3, e.player4, e.player5, e.player6];
     const swapInfo = isSwapUsed(e.swapUsed)
       ? { oldPlayer: e.swappedOutPlayer, newPlayer: e.swap, swapWeek: Number(e.swapWeek) || 0 }
@@ -1501,8 +1503,14 @@ function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod
     const fullBreakdown = [...breakdown];
     if (e.swap && !isSwapUsed(e.swapUsed)) fullBreakdown.push({slot:"Swap", name:e.swap, pts:null});
     const displayName = (e.teamName && e.teamName.trim()) || e.name || "Unnamed";
-    return {...e, displayName, total, breakdown: fullBreakdown, swapInfo};
-  }).sort((a,b) => b.total - a.total) : [];
+    const swapInfoOut = isSwapUsed(e.swapUsed) ? swapInfo : null;
+    return {...e, displayName, total, breakdown: fullBreakdown, swapInfo: swapInfoOut};
+  }).sort((a,b) => b.total - a.total);
+}
+
+function NFLLeaderboard({entries, entriesErr, stats, statsErr, period, setPeriod, expanded, setExpanded}) {
+  const periodWeeks = period === "Overall" ? weeksThroughPeriod("Period 3") : NFL_PERIODS[period];
+  const leaderboard = buildNflLeaderboard(entries, stats, periodWeeks);
 
   // Ownership %, tracked separately per category -- a team picked as someone's QB and
   // the same team picked as someone else's Kicker are different facts, not the same stat.
@@ -2803,13 +2811,40 @@ function NFLCountdownMini() {
 function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
   const [showNflRules, setShowNflRules] = useState(false);
   const [nflEntryCount, setNflEntryCount] = useState(null);
+  const [nflEntries, setNflEntries] = useState(null);
+  const [nflStats, setNflStats] = useState(null);
 
   useEffect(() => {
     if (!NFL_ENTRIES_CSV_URL) return;
     fetch(NFL_ENTRIES_CSV_URL).then(r => r.text()).then(t => {
-      setNflEntryCount(parseNflEntriesCSV(t).length);
+      const parsed = parseNflEntriesCSV(t);
+      setNflEntryCount(parsed.length);
+      setNflEntries(parsed);
     }).catch(() => {}); // quietly stay blank if it fails -- not worth blocking the dashboard over
   }, []);
+
+  useEffect(() => {
+    if (new Date() < NFL_DEADLINE) return; // nothing scored yet before picks lock
+    fetchPeriodStats("Overall", NFL_SEASON_YEAR).then(setNflStats).catch(() => {});
+  }, []);
+
+  // Same scoring primitives the standings page uses (isSwapUsed, scoreSkillSlotWithSwap) --
+  // only the total is needed here, not the full per-slot breakdown, so this stays lean
+  // rather than duplicating NFLLeaderboard's whole roster-building logic.
+  const nflTop5 = (nflEntries && nflStats) ? nflEntries.map(e => {
+    const periodWeeks = weeksThroughPeriod("Period 3");
+    const swapInfo = isSwapUsed(e.swapUsed)
+      ? { oldPlayer: e.swappedOutPlayer, newPlayer: e.swap, swapWeek: Number(e.swapWeek) || 0 }
+      : null;
+    let total = 0;
+    for (const teamName of [e.qb1, e.qb2]) total += (nflStats.teams[teamName]?.passingTD || 0) * 6;
+    for (const teamName of [e.k1, e.k2]) total += (nflStats.teams[teamName]?.fgMade || 0) * 3;
+    for (const playerName of [e.player1,e.player2,e.player3,e.player4,e.player5,e.player6]) {
+      total += scoreSkillSlotWithSwap(playerName, periodWeeks, nflStats, swapInfo);
+    }
+    const displayName = (e.teamName && e.teamName.trim()) || e.name || "Unnamed";
+    return {...e, displayName, total};
+  }).sort((a,b) => b.total - a.total).slice(0,5) : [];
   const curMonthLabel = allData["september"] ? "September" : allData["august"] ? "August" : allData["july"] ? "July" : allData["june"] ? "June" : allData["may"] ? "May" : "Month";
   const cur = allData["september"] || allData["august"] || allData["july"] || allData["june"] || allData["may"] || {seasonStandings:[],monthlyStandings:[]};
   const ss = cur.seasonStandings || [];
@@ -2833,19 +2868,6 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
         <img src="/wugderby-logo.png" alt="Wug Derby Pools" style={{height:96,width:"auto",opacity:0.96,flexShrink:0}}/>
       </div>
       <div className="dgrid">
-        <div className="dc" onClick={()=>setTab("hr")}>
-          <div className="dctop">
-            <div className="dico">⚾</div>
-            <div><div className="dctitle">Home Run Derby</div><div className="dcsub">2026 MLB Season - {ss.length} Teams</div></div>
-            <span className="blive" style={{marginLeft:"auto"}}>LIVE</span>
-          </div>
-          <div className="dcbody">
-            <div className="dsr"><span className="dsl">Season Leader</span><span className="dsv">{sl.name||"—"} ({sl.season||0} HR)</span></div>
-            <div className="dsr"><span className="dsl">{curMonthLabel} Leader</span><span className="dsv">{ml.name||"—"} ({ml.month||0} HR)</span></div>
-            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Season Prize</span><span className="dsv">1st $300 - 2nd $175 - 3rd $75</span></div>
-          </div>
-          <button className="dcta">VIEW STANDINGS</button>
-        </div>
         <div className="dc" onClick={()=>setTab("nfl")}>
           <div className="dctop">
             <div className="dico">🏈</div>
@@ -2884,26 +2906,40 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
         </div>
       </div>
       <div className="card">
-        <div className="chdr">HR Derby - Season Top 5</div>
-        <table>
-          <thead><tr><th>Rank</th><th>Team</th><th className="r">Season HRs</th><th className="r">July HRs</th></tr></thead>
-          <tbody>
-            {[...ss].sort((a,b)=>b.season-a.season).slice(0,5).map((s,i) => {
-              const m = ms.find(x=>x.name===s.name);
-              return (
-                <tr key={s.name}>
+        <div className="chdr">NFL Derby - Overall Top 5</div>
+        {new Date() < NFL_DEADLINE && <div style={{padding:20,color:"#5fa89e"}}>Standings open once picks lock.</div>}
+        {new Date() >= NFL_DEADLINE && !nflStats && <div style={{padding:20,color:"#5fa89e"}}>Loading...</div>}
+        {nflStats && (
+          <table>
+            <thead><tr><th>Rank</th><th>Team</th><th className="r">Points</th></tr></thead>
+            <tbody>
+              {nflTop5.length === 0 && <tr><td colSpan={3} style={{padding:20,color:"#5fa89e"}}>No entries yet.</td></tr>}
+              {nflTop5.map((e,i) => (
+                <tr key={e.email + e.entryNumber}>
                   <td><RB rank={i+1}/></td>
-                  <td style={{fontWeight:500}}>{s.name}</td>
-                  <td className="r"><span className="hn">{s.season}</span></td>
-                  <td className="r"><span className="hns">{m?m.month:"—"}</span></td>
+                  <td style={{fontWeight:500}}>{e.displayName}</td>
+                  <td className="r"><span className="hn">{e.total}</span></td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
       <div style={{marginTop:32,marginBottom:12}}>
         <div style={{fontFamily:"var(--F)",fontSize:22,letterSpacing:2,color:"#5fa89e",marginBottom:12,borderBottom:"1px solid #1a3a3a",paddingBottom:8}}>PAST POOLS</div>
+        <div className="dc" style={{opacity:0.8,cursor:"pointer"}} onClick={()=>setTab("hr")}>
+          <div className="dctop">
+            <div className="dico">⚾</div>
+            <div><div className="dctitle">Home Run Derby</div><div className="dcsub">2026 MLB Season - Final Results</div></div>
+            <span style={{marginLeft:"auto",background:"rgba(255,215,0,.12)",color:"#ffd700",border:"1px solid #ffd700",borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:700,letterSpacing:1}}>FINAL</span>
+          </div>
+          <div className="dcbody">
+            <div className="dsr"><span className="dsl">Season Champion</span><span className="dsv" style={{color:"#ffd700"}}>{sl.name||"—"} ({sl.season||0} HR)</span></div>
+            <div className="dsr"><span className="dsl">Entries</span><span className="dsv">{ss.length} Teams</span></div>
+            <div className="dsr" style={{marginBottom:0}}><span className="dsl">Status</span><span className="dsv" style={{color:"#5fa89e"}}>Season Complete</span></div>
+          </div>
+          <button className="dcta">VIEW STANDINGS</button>
+        </div>
         <div className="dc" style={{opacity:0.8,cursor:"pointer"}} onClick={()=>setTab("wc")}>
           <div className="dctop">
             <div className="dico">⚽</div>
