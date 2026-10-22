@@ -364,12 +364,10 @@ function currentNflWeek() {
   return Math.min(18, Math.floor(diffDays / 7) + 1);
 }
 
-// Swap Player window: usable through Week 9, locked once Week 10 begins.
-const NFL_SWAP_LOCK_WEEK = 10;
-
-// Site-wide swap reminder banner -- hides itself once Week 10's Sunday games kick off
-// (Sun Nov 15, 2026, 1:00 PM ET).
-const NFL_SWAP_REMINDER_END = new Date("2026-11-15T13:00:00-05:00");
+// Swap Player deadline: the start of Week 10's Sunday games (Sun Nov 15, 2026, 1:00 PM ET).
+// The swap form closes and the site-wide reminder banner hides at this moment.
+const NFL_SWAP_DEADLINE = new Date("2026-11-15T13:00:00-05:00");
+const swapWindowClosed = () => new Date() >= NFL_SWAP_DEADLINE;
 
 // The period containing the current week -- what the standings open to by default.
 function currentNflPeriod() {
@@ -1447,7 +1445,7 @@ function NFLEntryForm() {
         <div className="form-section-hdr"><span><span className="num">04 - </span>SWAP PLAYER</span></div>
         <div style={{padding:20}}>
           <div style={{fontSize:12,color:"#5fa89e",marginBottom:10}}>
-            Designate a 7th player who can replace one of your 6 before Week 10. Doesn't count toward your salary cap now — but can't push you over 146 at the time you swap him in.
+            Designate a 7th player who can replace one of your 6 before Week 10's Sunday games. Doesn't count toward your salary cap now — but can't push you over 146 at the time you swap him in.
           </div>
           <SearchSelect
             options={NFL_PLAYER_POOL.map(p => ({value: p.name, label: `${p.name} (${p.team}, ${p.tds})`}))}
@@ -1857,7 +1855,7 @@ function NFLRules() {
       </Section>
       <Section title="The Swap Rule">
         You may replace <strong style={{color:"#fff"}}>one</strong> of your 6 skill players with
-        your designated Swap Player any time before Week 10. The swap-in cannot push your total
+        your designated Swap Player any time before the start of Week 10's Sunday games. The swap-in cannot push your total
         over 146 at the time you make it. Team QBs and Team Kickers can never be swapped. Once
         you use your swap, your roster is locked for the rest of the season — there is no
         changing your mind afterward. If you never use it, your original 6 simply play the full
@@ -1894,8 +1892,7 @@ function NFLSwapForm() {
   const [effectiveWeek, setEffectiveWeek] = useState(null);
   const [effectiveWeekError, setEffectiveWeekError] = useState("");
 
-  const weekNow = currentNflWeek();
-  const windowClosed = weekNow >= NFL_SWAP_LOCK_WEEK;
+  const windowClosed = swapWindowClosed();
 
   // Determines the real effective week by checking whether that week's games have
   // actually kicked off yet (via ESPN), not just calendar math -- so a swap made any
@@ -1972,6 +1969,7 @@ function NFLSwapForm() {
 
   const confirmSwap = () => {
     setSubmitError("");
+    if (swapWindowClosed()) { setSubmitError("The Swap Player deadline has passed — swaps are closed for the season."); return; }
     if (!selectedSlot) { setSubmitError("Pick a player to replace first."); return; }
     if (!effectiveWeek) { setSubmitError("Still checking this week's game status — try again in a moment."); return; }
     const oldName = activeEntry[selectedSlot];
@@ -1995,7 +1993,7 @@ function NFLSwapForm() {
 
   if (windowClosed) return (
     <div className="card"><div style={{padding:24,textAlign:"center",color:"#e84545"}}>
-      🔒 The Swap Player window closed at the start of Week {NFL_SWAP_LOCK_WEEK}. No further swaps can be made this season.
+      🔒 The Swap Player window closed at the start of Week 10's Sunday games. No further swaps can be made this season.
     </div></div>
   );
 
@@ -2958,7 +2956,7 @@ function Dashboard({setTab, allData, updatedAt, submissions, wcScores}) {
               >
                 <div><strong style={{color:"#ffd700"}}>Roster:</strong> 2 Team QBs, 2 Team Kickers, 6 skill players, 1 Swap Player</div>
                 <div><strong style={{color:"#ffd700"}}>Cap:</strong> 146 total (salaries from 2025 stats)</div>
-                <div><strong style={{color:"#ffd700"}}>Swap:</strong> One swap allowed before Week 10; can't exceed the cap; QB/K can't be swapped</div>
+                <div><strong style={{color:"#ffd700"}}>Swap:</strong> One swap allowed before Week 10 Sunday kickoff; can't exceed the cap; QB/K can't be swapped</div>
                 <div><strong style={{color:"#ffd700"}}>Scoring:</strong> Rush/Rec/Pass TD = 6 pts, FG = 3 pts, XP = 0</div>
                 <div><strong style={{color:"#ffd700"}}>Pay Periods:</strong> Wks 1-6, 7-12, 13-18, + Overall</div>
                 <div><strong style={{color:"#ffd700"}}>Entry:</strong> $50, due by Week 2</div>
@@ -3186,7 +3184,7 @@ export default function App() {
             ⚠️ {partialWarning}
           </div>
         )}
-        {new Date() < NFL_SWAP_REMINDER_END && (
+        {!swapWindowClosed() && (
           <div style={{background:"#ffd700",color:"#000",fontSize:13,fontWeight:600,textAlign:"center",padding:"8px 12px",lineHeight:1.4}}>
             🔔 Reminder: All Swap Player moves must be submitted prior to the start of the Sunday games on Week 10.
           </div>
