@@ -62,19 +62,27 @@ export default async function handler(req, res) {
       obj[key][field] = (obj[key][field] || 0) + amount;
     };
 
-    const summaries = await Promise.all(
-      events.map(async (ev) => {
-        if (!ev.id) return null;
+    // Each game's box score is fetched separately. If one fails and we just skip it, every
+    // TD/FG in that game silently disappears (and gets cached). So retry, and if a game that
+    // has started still can't be loaded, fail the whole week -- the site then shows its
+    // "stats couldn't load" warning instead of quietly wrong totals.
+    const fetchSummary = async (id) => {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${id}`;
+      for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${ev.id}`;
           const r = await fetch(url);
-          if (!r.ok) return null;
-          return await r.json();
-        } catch {
-          return null;
-        }
-      })
-    );
+          if (r.ok) return await r.json();
+        } catch {}
+        await new Promise((ok) => setTimeout(ok, 400 * (attempt + 1)));
+      }
+      return null;
+    };
+    const summaries = await Promise.all(events.map((ev) => (ev.id ? fetchSummary(ev.id) : null)));
+    const missing = events.filter((ev, i) => ev?.status?.type?.state !== "pre" && !summaries[i]);
+    if (missing.length) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(502).json({ error: `Could not load ${missing.length} game box score(s) for week ${week}` });
+    }
 
     for (const sum of summaries) {
       const teamBlocks = sum?.boxscore?.players || [];

@@ -375,6 +375,20 @@ function currentNflPeriod() {
   return Object.keys(NFL_PERIODS).find(p => NFL_PERIODS[p].includes(wk)) || "Overall";
 }
 
+// Player names from ESPN and from the pool's picks don't always match character-for-character
+// (curly vs straight apostrophes, "D.J." vs "DJ", "Jr."/"III" suffixes, accents). A mismatch
+// silently scores as zero, so every player lookup goes through this normalized key.
+function nflKey(name) {
+  return String(name || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[’‘'`.]/g, "")
+    .replace(/-/g, " ")
+    .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function fetchWeeksStats(weeks, year) {
   const playedWeeks = weeks.filter(w => w <= currentNflWeek());
   const teams = {}, players = {}, byWeek = {};
@@ -383,7 +397,12 @@ async function fetchWeeksStats(weeks, year) {
   // allSettled, not all: a single slow or failed week shouldn't blank the entire
   // leaderboard -- show the weeks that did load.
   const settled = await Promise.allSettled(
-    playedWeeks.map(w => fetch(`/api/nfl-week?week=${w}&year=${year}`).then(r => r.json()))
+    // A non-200 response (e.g. ESPN hiccup) must count as a failed week so the warning
+    // shows -- before, it resolved as an empty week and silently scored zero.
+    playedWeeks.map(w => fetch(`/api/nfl-week?week=${w}&year=${year}`).then(r => {
+      if (!r.ok) throw new Error(`week ${w}: HTTP ${r.status}`);
+      return r.json();
+    }))
   );
 
   const bump = (obj, key, field, amount) => {
@@ -393,8 +412,17 @@ async function fetchWeeksStats(weeks, year) {
   };
   settled.forEach((s, idx) => {
     if (s.status !== "fulfilled") return;
-    const wk = s.value;
-    byWeek[playedWeeks[idx]] = wk; // keep raw per-week data -- needed to split a swapped slot's score
+    const raw = s.value;
+    // Re-key this week's players by normalized name so lookups match regardless of punctuation.
+    const wkPlayers = {};
+    for (const [name, st] of Object.entries(raw.players || {})) {
+      const k = nflKey(name);
+      if (!wkPlayers[k]) wkPlayers[k] = {rushTD:0, recTD:0};
+      wkPlayers[k].rushTD += st.rushTD || 0;
+      wkPlayers[k].recTD += st.recTD || 0;
+    }
+    const wk = {...raw, players: wkPlayers};
+    byWeek[playedWeeks[idx]] = wk; // keep per-week data -- needed to split a swapped slot's score
     for (const [team, st] of Object.entries(wk.teams || {})) {
       bump(teams, team, "passingTD", st.passingTD || 0);
       bump(teams, team, "fgMade", st.fgMade || 0);
@@ -421,14 +449,14 @@ function fetchPeriodStats(periodName, year) {
 // player's TDs, weeks from the swap onward count the NEW (swapped-in) player's TDs.
 function scoreSkillSlotWithSwap(currentName, weeks, stats, swapInfo) {
   if (!swapInfo || currentName !== swapInfo.newPlayer) {
-    return (stats.players[currentName]?.totalTD || 0) * 6;
+    return (stats.players[nflKey(currentName)]?.totalTD || 0) * 6;
   }
   let td = 0;
   for (const w of weeks) {
     const wk = stats.byWeek[w];
     if (!wk) continue;
     const name = w < swapInfo.swapWeek ? swapInfo.oldPlayer : swapInfo.newPlayer;
-    const p = wk.players?.[name];
+    const p = wk.players?.[nflKey(name)];
     if (p) td += (p.rushTD||0) + (p.recTD||0);
   }
   return td * 6;
@@ -446,7 +474,7 @@ function scoreRoster(roster, stats) {
     total += pts; breakdown.push({slot:"K", name:teamName, pts});
   }
   for (const playerName of roster.skill || []) {
-    const pts = (stats.players[playerName]?.totalTD || 0) * 6;
+    const pts = (stats.players[nflKey(playerName)]?.totalTD || 0) * 6;
     total += pts; breakdown.push({slot:"Skill", name:playerName, pts});
   }
   return {total, breakdown};
