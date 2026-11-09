@@ -3184,11 +3184,6 @@ export default function App() {
             ⚠️ {partialWarning}
           </div>
         )}
-        {!swapWindowClosed() && (
-          <div style={{background:"#ffd700",color:"#000",fontSize:13,fontWeight:600,textAlign:"center",padding:"8px 12px",lineHeight:1.4}}>
-            🔔 Reminder: All Swap Player moves must be submitted prior to the start of the Sunday games on Week 10.
-          </div>
-        )}
         <header className="hdr">
           <div className="logo" style={{cursor:"pointer"}} onClick={()=>setTab("dashboard")}>WUG DERBY<span> POOLS</span></div>
           <div style={{fontSize:13,color:"#5fa89e"}}>{isJuly4()?<span style={{color:"#e84545",fontWeight:700}}>HAPPY 4TH OF JULY</span>:<span style={{color:"#00e5d4",fontWeight:700}}>HR DERBY LIVE</span>}</div>
@@ -3198,6 +3193,11 @@ export default function App() {
             <button key={t.id} className={"ntab"+(tab===t.id?" on":"")} onClick={()=>setTab(t.id)}>{t.label}</button>
           ))}
         </nav>
+        {!swapWindowClosed() && (
+          <div style={{background:"#ffd700",color:"#000",fontSize:13,fontWeight:600,textAlign:"center",padding:"8px 12px",lineHeight:1.4}}>
+            🔔 Reminder: All Swap Player moves must be submitted prior to the start of the Sunday games on Week 10.
+          </div>
+        )}
         <main className="main">
           {isJuly4() && (
             <div className="july4-banner">
